@@ -953,7 +953,18 @@ $zidan-shadow-card: 0 4px 12px rgba(15, 23, 42, .06);
   }
 
   .v-btn--fab.primary {
+    background-color: $zidan-primary !important;
+    border-color: $zidan-primary !important;
+    color: #FFF !important;
     box-shadow: $zidan-shadow-primary !important;
+
+    &:hover,
+    &:focus,
+    &:active {
+      background-color: $zidan-primary !important;
+      border-color: $zidan-primary !important;
+      color: #FFF !important;
+    }
 
     .v-icon {
       color: #FFF !important;
