@@ -1,0 +1,21 @@
+mutation($question: String!, $locale: String, $path: String, $pageId: Int) {
+  ai {
+    chat(question: $question, locale: $locale, path: $path, pageId: $pageId) {
+      responseResult {
+        succeeded
+        errorCode
+        slug
+        message
+      }
+      answer
+      sources {
+        pageId
+        title
+        path
+        locale
+        chunkIndex
+        score
+      }
+    }
+  }
+}

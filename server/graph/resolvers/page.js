@@ -85,7 +85,9 @@ module.exports = {
         'privateNS',
         'contentType',
         'createdAt',
-        'updatedAt'
+        'updatedAt',
+        'isVectorized',
+        'vectorizedAt'
       ])
         .withGraphJoined('tags')
         .modifyGraph('tags', builder => {
@@ -425,6 +427,20 @@ module.exports = {
       }
     },
     /**
+     * SET PAGE FOLDER DISPLAY METADATA
+     */
+    async setFolderMeta(obj, args, context) {
+      try {
+        await WIKI.models.pageFolderMeta.upsertMeta(args)
+        await WIKI.models.pages.rebuildTree()
+        return {
+          responseResult: graphHelper.generateSuccess('Page folder metadata has been updated.')
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+    /**
      * CONVERT PAGE
      */
     async convert(obj, args, context) {
@@ -614,6 +630,46 @@ module.exports = {
         await WIKI.models.pageHistory.purge(args.olderThan)
         return {
           responseResult: graphHelper.generateSuccess('Page history purged successfully.')
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+    /**
+     * VECTORIZE SINGLE PAGE
+     */
+    async vectorize (obj, args, context) {
+      try {
+        if (!WIKI.data.searchEngine || !WIKI.data.searchEngine.created) {
+          throw new Error('Vector search engine is not active.')
+        }
+        const page = await WIKI.models.pages.getPageFromDb(args.id)
+        if (!page) {
+          throw new WIKI.Error.PageNotFound()
+        }
+        const content = WIKI.models.pages.cleanHTML(page.render)
+        await WIKI.data.searchEngine.updated({
+          ...page,
+          safeContent: content
+        })
+        return {
+          responseResult: graphHelper.generateSuccess('Page vectorized successfully.')
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+    /**
+     * VECTORIZE ALL PAGES
+     */
+    async vectorizeAll (obj, args, context) {
+      try {
+        if (!WIKI.data.searchEngine || !WIKI.data.searchEngine.rebuild) {
+          throw new Error('Vector search engine is not active.')
+        }
+        await WIKI.data.searchEngine.rebuild()
+        return {
+          responseResult: graphHelper.generateSuccess('All pages vectorized successfully.')
         }
       } catch (err) {
         return graphHelper.generateError(err)

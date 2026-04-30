@@ -145,3 +145,18 @@ dataPath: ./data
 # file uploads.
 
 bodyParserLimit: 5mb
+
+# ---------------------------------------------------------------------
+# Vector Search (Optional)
+# ---------------------------------------------------------------------
+# Enable AI-powered semantic vector search. Requires PostgreSQL with
+# pgvector extension and an OpenAI-compatible Embedding API.
+# Configure the search engine in Administration > Search Engine after
+# enabling this feature.
+
+# vector:
+#   embedding:
+#     baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+#     apiKey: sk-xxx
+#     model: text-embedding-v3
+#     dimensions: 1024

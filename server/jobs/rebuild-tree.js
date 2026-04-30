@@ -11,6 +11,8 @@ module.exports = async (pageId) => {
     await WIKI.configSvc.applyFlags()
 
     const pages = await WIKI.models.pages.query().select('id', 'path', 'localeCode', 'title', 'isPrivate', 'privateNS').orderBy(['localeCode', 'path'])
+    const folderMeta = await WIKI.models.pageFolderMeta.query().select('localeCode', 'path', 'title')
+    const folderMetaMap = _.keyBy(folderMeta, meta => `${meta.localeCode}|${meta.path}`)
     let tree = []
     let pik = 0
 
@@ -30,12 +32,13 @@ module.exports = async (pageId) => {
         })
         if (!found) {
           pik++
+          const folderTitle = _.get(folderMetaMap, `${page.localeCode}|${currentPath}.title`)
           tree.push({
             id: pik,
             localeCode: page.localeCode,
             path: currentPath,
             depth: depth,
-            title: isFolder ? part : page.title,
+            title: isFolder ? (folderTitle || part) : page.title,
             isFolder: isFolder,
             isPrivate: !isFolder && page.isPrivate,
             privateNS: !isFolder ? page.privateNS : null,

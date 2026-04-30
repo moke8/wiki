@@ -74,15 +74,47 @@
                   span.ml-2.grey--text(:class='$vuetify.theme.dark ? `text--lighten-1` : `text--darken-2`') / {{ props.item.path }}
                 td {{ props.item.createdAt | moment('calendar') }}
                 td {{ props.item.updatedAt | moment('calendar') }}
+                td.text-center
+                  v-tooltip(bottom)
+                    template(v-slot:activator='{ on, attrs }')
+                      v-icon.is-clickable(
+                        v-if='props.item.isVectorized'
+                        color='green'
+                        small
+                        v-bind='attrs'
+                        v-on='on'
+                        @click.stop='confirmVectorize(props.item)'
+                      ) mdi-check-circle
+                      v-icon.is-clickable(
+                        v-else
+                        color='grey lighten-1'
+                        small
+                        v-bind='attrs'
+                        v-on='on'
+                        @click.stop='confirmVectorize(props.item)'
+                      ) mdi-circle-outline
+                    span {{ props.item.isVectorized ? 'Click to re-vectorize' : 'Click to vectorize' }}
             template(slot='no-data')
               v-alert.ma-3(icon='mdi-alert', :value='true', outlined) No pages to display.
           .text-center.py-2.animated.fadeInDown(v-if='this.pageTotal > 1')
             v-pagination(v-model='pagination', :length='pageTotal')
+    v-dialog(v-model='vectorizeDialog', max-width='450', persistent)
+      v-card
+        v-card-title.headline {{ vectorizeTarget && vectorizeTarget.isVectorized ? 'Re-vectorize Page?' : 'Vectorize Page?' }}
+        v-card-text
+          span Are you sure you want to {{ vectorizeTarget && vectorizeTarget.isVectorized ? 're-vectorize' : 'vectorize' }} page
+          strong  "{{ vectorizeTarget ? vectorizeTarget.title : '' }}"
+          span ?
+        v-card-actions
+          v-spacer
+          v-btn(text, @click='vectorizeDialog = false', :disabled='vectorizeLoading') Cancel
+          v-btn(color='primary', @click='doVectorize', :loading='vectorizeLoading') Confirm
 </template>
 
 <script>
 import _ from 'lodash'
 import pagesQuery from 'gql/admin/pages/pages-query-list.gql'
+import vectorizeMutation from 'gql/admin/pages/pages-mutation-vectorize.gql'
 
 export default {
   data() {
@@ -96,7 +128,8 @@ export default {
         { text: 'Title', value: 'title' },
         { text: 'Path', value: 'path' },
         { text: 'Created', value: 'createdAt', width: 250 },
-        { text: 'Last Updated', value: 'updatedAt', width: 250 }
+        { text: 'Last Updated', value: 'updatedAt', width: 250 },
+        { text: 'Vectorized', value: 'isVectorized', width: 120, align: 'center' }
       ],
       search: '',
       selectedLang: null,
@@ -106,7 +139,10 @@ export default {
         { text: 'Published', value: true },
         { text: 'Not Published', value: false }
       ],
-      loading: false
+      loading: false,
+      vectorizeDialog: false,
+      vectorizeTarget: null,
+      vectorizeLoading: false
     }
   },
   computed: {
@@ -143,7 +179,43 @@ export default {
     newpage() {
       this.pageSelectorShown = true
     },
-    recyclebin () { }
+    recyclebin () { },
+    confirmVectorize (page) {
+      this.vectorizeTarget = page
+      this.vectorizeDialog = true
+    },
+    async doVectorize () {
+      this.vectorizeLoading = true
+      try {
+        const resp = await this.$apollo.mutate({
+          mutation: vectorizeMutation,
+          variables: { id: this.vectorizeTarget.id }
+        })
+        const result = resp.data.pages.vectorize.responseResult
+        if (result.succeeded) {
+          this.$store.commit('showNotification', {
+            message: 'Page vectorized successfully.',
+            style: 'success',
+            icon: 'check'
+          })
+          await this.$apollo.queries.pages.refetch()
+        } else {
+          this.$store.commit('showNotification', {
+            message: result.message,
+            style: 'error',
+            icon: 'warning'
+          })
+        }
+      } catch (err) {
+        this.$store.commit('showNotification', {
+          message: err.message,
+          style: 'error',
+          icon: 'warning'
+        })
+      }
+      this.vectorizeLoading = false
+      this.vectorizeDialog = false
+    }
   },
   apollo: {
     pages: {

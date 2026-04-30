@@ -1,0 +1,101 @@
+key: vector
+title: AI Search (Embedding + Chat)
+description: Semantic vector search engine powered by AI Embedding models, with optional AI chat over vectorized documents via OpenAI-compatible APIs. Requires PostgreSQL with pgvector extension.
+author: requarks.io
+logo: https://static.requarks.io/logo/postgresql.svg
+website: https://www.requarks.io/
+isAvailable: true
+props:
+  embeddingBaseUrl:
+    type: String
+    title: Embedding API Base URL
+    hint: "OpenAI-compatible Embedding API endpoint (e.g. https://dashscope.aliyuncs.com/compatible-mode/v1)"
+    default: "https://api.openai.com/v1"
+    order: 1
+  embeddingApiKey:
+    type: String
+    title: Embedding API Key
+    hint: "API key for the Embedding service"
+    default: ""
+    sensitive: true
+    order: 2
+  embeddingModel:
+    type: String
+    title: Embedding Model
+    hint: "Model name (e.g. text-embedding-v3, text-embedding-3-small)"
+    default: "text-embedding-v3"
+    order: 3
+  embeddingDimensions:
+    type: Number
+    title: Embedding Dimensions
+    hint: "Vector dimensions. Must match the model output dimensions."
+    default: 1024
+    order: 4
+  maxChunkSize:
+    type: Number
+    title: Max Chunk Size (chars)
+    hint: "Maximum number of characters per text chunk."
+    default: 500
+    order: 5
+  overlapSize:
+    type: Number
+    title: Chunk Overlap Size (chars)
+    hint: "Number of overlapping characters between adjacent chunks."
+    default: 50
+    order: 6
+  topK:
+    type: Number
+    title: Search Top K
+    hint: "Number of vector results to retrieve per search query."
+    default: 20
+    order: 7
+  minScore:
+    type: Number
+    title: Minimum Similarity Score
+    hint: "Minimum cosine similarity threshold (0-1). Results below this score are filtered out."
+    default: 0.5
+    order: 8
+  chatEnabled:
+    type: Boolean
+    title: Enable AI Chat
+    hint: "Enable the foreground AI assistant chat entry and GraphQL chat API."
+    default: false
+    order: 20
+  chatBaseUrl:
+    type: String
+    title: Chat API Base URL
+    hint: "OpenAI-compatible Chat Completions API endpoint. Leave blank to reuse Embedding API Base URL."
+    default: ""
+    order: 21
+  chatApiKey:
+    type: String
+    title: Chat API Key
+    hint: "API key for the Chat service. Leave blank to reuse Embedding API Key."
+    default: ""
+    sensitive: true
+    order: 22
+  chatModel:
+    type: String
+    title: Chat Model
+    hint: "Conversation model name (e.g. qwen-plus, gpt-4o-mini)."
+    default: "qwen-plus"
+    order: 23
+  chatSystemPrompt:
+    type: String
+    title: Chat System Prompt
+    hint: "Instructions for the assistant. Context from vectorized documents will be appended automatically."
+    multiline: true
+    default: "You are a helpful documentation assistant. Answer using only the provided context. If the context is insufficient, say you don't know."
+    order: 24
+  chatTopK:
+    type: Number
+    title: Chat Context Top K
+    hint: "Number of vector chunks used as context for each answer."
+    default: 6
+    order: 25
+  chatMinScore:
+    type: Number
+    title: Chat Minimum Similarity Score
+    hint: "Minimum cosine similarity threshold (0-1) for chunks used by AI Chat."
+    default: 0.5
+    order: 26

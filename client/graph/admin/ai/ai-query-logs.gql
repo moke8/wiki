@@ -1,0 +1,23 @@
+query($limit: Int, $offset: Int) {
+  ai {
+    logs(limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        question
+        answer
+        sources
+        userId
+        userName
+        userEmail
+        ip
+        locale
+        path
+        duration
+        status
+        error
+        createdAt
+      }
+    }
+  }
+}

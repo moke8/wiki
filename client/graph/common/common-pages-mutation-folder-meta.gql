@@ -1,0 +1,10 @@
+mutation($locale: String!, $path: String!, $title: String!) {
+  pages {
+    setFolderMeta(locale: $locale, path: $path, title: $title) {
+      responseResult {
+        succeeded
+        message
+      }
+    }
+  }
+}

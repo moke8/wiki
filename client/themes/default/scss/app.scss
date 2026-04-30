@@ -1205,6 +1205,60 @@
 }
 
 // ---------------
+// AI CHAT
+// ---------------
+
+.ai-chat {
+  &-panel {
+    background-color: #FFF;
+  }
+
+  &-messages {
+    background-color: mc('grey', '50');
+  }
+
+  &-empty {
+    color: mc('grey', '600');
+  }
+
+  &-bubble {
+    border-radius: 12px;
+  }
+
+  &-message-user .ai-chat-bubble {
+    color: #FFF;
+    background-color: mc('theme', 'primary');
+  }
+
+  &-message-assistant .ai-chat-bubble {
+    color: mc('grey', '900');
+    background-color: #FFF;
+    border: 1px solid mc('grey', '300');
+  }
+
+  &-sources a {
+    color: inherit;
+  }
+
+  &-input {
+    background-color: #FFF;
+  }
+
+  @at-root .theme--dark .ai-chat {
+    &-messages {
+      background-color: mc('grey', '900');
+    }
+
+    &-message-assistant .ai-chat-bubble,
+    &-input {
+      color: #FFF;
+      background-color: mc('grey', '800');
+      border-color: mc('grey', '700');
+    }
+  }
+}
+
+// ---------------
 // RTL FIXES
 // Vuetify GH Issue: https://github.com/vuetifyjs/vuetify/issues/6317
 // ---------------

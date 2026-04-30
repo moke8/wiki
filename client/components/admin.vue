@@ -71,6 +71,9 @@
             v-list-item(to='/search', color='primary')
               v-list-item-avatar(size='24', tile): v-icon mdi-cloud-search-outline
               v-list-item-title {{ $t('admin:search.title') }}
+            v-list-item(to='/ai-logs', color='primary')
+              v-list-item-avatar(size='24', tile): v-icon mdi-robot-outline
+              v-list-item-title AI Chat Logs
             v-list-item(to='/storage', color='primary')
               v-list-item-avatar(size='24', tile): v-icon mdi-harddisk
               v-list-item-title {{ $t('admin:storage.title') }}
@@ -127,7 +130,6 @@
 </template>
 
 <script>
-import _ from 'lodash'
 import VueRouter from 'vue-router'
 import { get, sync } from 'vuex-pathify'
 
@@ -137,7 +139,9 @@ import adminStore from '../store/admin'
 
 /* global WIKI */
 
-WIKI.$store.registerModule('admin', adminStore)
+if (!WIKI.$store.hasModule('admin')) {
+  WIKI.$store.registerModule('admin', adminStore)
+}
 
 const router = new VueRouter({
   mode: 'history',
@@ -165,6 +169,7 @@ const router = new VueRouter({
     { path: '/extensions', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-extensions.vue') },
     { path: '/logging', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-logging.vue') },
     { path: '/search', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-search.vue') },
+    { path: '/ai-logs', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-ai-logs.vue') },
     { path: '/storage', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-storage.vue') },
     { path: '/api', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-api.vue') },
     { path: '/mail', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-mail.vue') },
@@ -216,12 +221,11 @@ export default {
   },
   methods: {
     hasPermission(prm) {
-      if (_.isArray(prm)) {
-        return _.some(prm, p => {
-          return _.includes(this.permissions, p)
-        })
+      const permissions = Array.isArray(this.permissions) ? this.permissions : []
+      if (Array.isArray(prm)) {
+        return prm.some(p => permissions.includes(p))
       } else {
-        return _.includes(this.permissions, prm)
+        return permissions.includes(prm)
       }
     }
   },

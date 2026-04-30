@@ -1,0 +1,12 @@
+mutation ($id: Int!) {
+  pages {
+    vectorize(id: $id) {
+      responseResult {
+        succeeded
+        errorCode
+        slug
+        message
+      }
+    }
+  }
+}

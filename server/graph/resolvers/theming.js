@@ -13,11 +13,18 @@ module.exports = {
   },
   ThemingQuery: {
     async themes(obj, args, context, info) {
-      return [{ // TODO
-        key: 'default',
-        title: 'Default',
-        author: 'requarks.io'
-      }]
+      return [
+        {
+          key: 'default',
+          title: 'Default',
+          author: 'requarks.io'
+        },
+        {
+          key: 'zidan',
+          title: 'Zidan',
+          author: 'zidan'
+        }
+      ]
     },
     async config(obj, args, context, info) {
       return {

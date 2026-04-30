@@ -158,6 +158,7 @@ Vue.component('Editor', () => import(/* webpackPrefetch: -100, webpackChunkName:
 Vue.component('History', () => import(/* webpackChunkName: "history" */ './components/history.vue'))
 Vue.component('Loader', () => import(/* webpackPrefetch: true, webpackChunkName: "ui-extra" */ './components/common/loader.vue'))
 Vue.component('Login', () => import(/* webpackPrefetch: true, webpackChunkName: "login" */ './components/login.vue'))
+Vue.component('AiChat', () => import(/* webpackChunkName: "ui-extra" */ './components/common/ai-chat.vue'))
 Vue.component('NavHeader', () => import(/* webpackMode: "eager" */ './components/common/nav-header.vue'))
 Vue.component('NewPage', () => import(/* webpackChunkName: "new-page" */ './components/new-page.vue'))
 Vue.component('Notify', () => import(/* webpackMode: "eager" */ './components/common/notify.vue'))

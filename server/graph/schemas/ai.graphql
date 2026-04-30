@@ -1,0 +1,82 @@
+# ===============================================
+# AI
+# ===============================================
+
+extend type Query {
+  ai: AIQuery
+}
+
+extend type Mutation {
+  ai: AIMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type AIQuery {
+  status: AIChatStatus @auth(requires: ["read:pages", "manage:system"])
+
+  logs(
+    limit: Int
+    offset: Int
+  ): AIChatLogResult @auth(requires: ["manage:system"])
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type AIMutation {
+  chat(
+    question: String!
+    locale: String
+    path: String
+    pageId: Int
+  ): AIChatResponse @auth(requires: ["read:pages", "manage:system"]) @rateLimit(limit: 10, duration: 60)
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type AIChatStatus {
+  isEnabled: Boolean!
+}
+
+type AIChatResponse {
+  responseResult: ResponseStatus!
+  answer: String
+  sources: [AIChatSource]
+}
+
+type AIChatSource {
+  pageId: Int
+  title: String
+  path: String
+  locale: String
+  chunkIndex: Int
+  score: Float
+}
+
+type AIChatLogResult {
+  items: [AIChatLog]
+  total: Int!
+}
+
+type AIChatLog {
+  id: Int!
+  question: String!
+  answer: String
+  sources: String
+  userId: Int
+  userName: String
+  userEmail: String
+  ip: String
+  locale: String
+  path: String
+  duration: Int
+  status: String!
+  error: String
+  createdAt: Date!
+}

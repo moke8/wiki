@@ -1,12 +1,12 @@
 <template lang="pug">
   v-dialog(
     v-model='isShown'
-    max-width='850px'
+    max-width='900px'
     overlay-color='blue darken-4'
     overlay-opacity='.7'
     )
     v-card.page-selector
-      .dialog-header.is-blue
+      .dialog-header.is-blue.page-selector-header
         v-icon.mr-3(color='white') mdi-page-next-outline
         .body-1(v-if='mode === `create`') {{$t('common:pageSelector.createTitle')}}
         .body-1(v-else-if='mode === `move`') {{$t('common:pageSelector.moveTitle')}}
@@ -19,16 +19,16 @@
           :width='2'
           v-show='searchLoading'
           )
-      .d-flex
-        v-flex.grey(xs5, :class='$vuetify.theme.dark ? `darken-4` : `lighten-3`')
-          v-toolbar(color='grey darken-3', dark, dense, flat)
+      .page-selector-body.d-flex
+        v-flex.page-selector-folders(:class='folderPaneFlex')
+          v-toolbar.page-selector-toolbar(dense, flat)
             .body-2 {{$t('common:pageSelector.virtualFolders')}}
             v-spacer
             v-btn(icon, tile, href='https://docs.requarks.io/guide/pages#folders', target='_blank')
               v-icon mdi-help-box
-          div(style='height:400px;')
+          .page-selector-scroll(style='height:400px;')
             vue-scroll(:ops='scrollStyle')
-              v-treeview(
+              v-treeview.page-selector-tree(
                 :key='`pageTree-` + treeViewCacheId'
                 :active.sync='currentNode'
                 :open.sync='openNodes'
@@ -36,32 +36,57 @@
                 :load-children='fetchFolders'
                 dense
                 expand-icon='mdi-menu-down-outline'
-                item-id='path'
+                item-key='id'
                 item-text='title'
                 activatable
                 hoverable
                 )
                 template(slot='prepend', slot-scope='{ item, open, leaf }')
-                  v-icon mdi-{{ open ? 'folder-open' : 'folder' }}
-        v-flex(xs7)
-          v-toolbar(color='blue darken-2', dark, dense, flat)
+                  v-icon(size='18') mdi-{{ open ? 'folder-open' : 'folder' }}
+          .page-selector-new-folder(v-if='!mustExist')
+            v-text-field(
+              dense
+              outlined
+              hide-details
+              clearable
+              label='文件夹显示名'
+              v-model='newFolderTitle'
+              @keyup.enter='addVirtualFolder'
+              )
+            v-text-field(
+              dense
+              outlined
+              hide-details
+              clearable
+              label='路径名'
+              hint='例如 case，真实 URL 会使用该路径名'
+              persistent-hint
+              v-model='newFolderName'
+              @keyup.enter='addVirtualFolder'
+              )
+            v-btn(
+              depressed
+              color='#3248F2'
+              dark
+              :disabled='!compiledNewFolderName'
+              @click='addVirtualFolder'
+              ) 新建
+        v-flex.page-selector-pages(:class='pagesPaneFlex')
+          v-toolbar.page-selector-toolbar(dense, flat)
             .body-2 {{$t('common:pageSelector.pages')}}
-            //- v-spacer
-            //- v-btn(icon, tile, disabled): v-icon mdi-content-save-move-outline
-            //- v-btn(icon, tile, disabled): v-icon mdi-trash-can-outline
-          div(v-if='currentPages.length > 0', style='height:400px;')
+          .page-selector-scroll(v-if='currentPages.length > 0', style='height:400px;')
             vue-scroll(:ops='scrollStyle')
-              v-list.py-0(dense)
+              v-list.page-selector-page-list.py-0(dense)
                 v-list-item-group(
                   v-model='currentPage'
                   color='primary'
                   )
                   template(v-for='(page, idx) of currentPages')
                     v-list-item(:key='`page-` + page.id', :value='page')
-                      v-list-item-icon: v-icon mdi-text-box
+                      v-list-item-icon: v-icon(size='18') mdi-text-box
                       v-list-item-title {{page.title}}
-                    v-divider(v-if='idx < pages.length - 1')
-          v-alert.animated.fadeIn(
+                    v-divider(v-if='idx < currentPages.length - 1')
+          v-alert.page-selector-empty.animated.fadeIn(
             v-else
             text
             color='orange'
@@ -69,28 +94,38 @@
             icon='mdi-alert'
             )
             .body-2 {{$t('common:pageSelector.folderEmptyWarning')}}
-      v-card-actions.grey.pa-2(:class='$vuetify.theme.dark ? `darken-2` : `lighten-1`', v-if='!mustExist')
-        v-select(
+      v-card-actions.page-selector-path-actions(v-if='!mustExist')
+        v-select.page-selector-locale(
           solo
-          dark
           flat
-          background-color='grey darken-3-d2'
           hide-details
           single-line
           :items='namespaces'
-          style='flex: 0 0 100px; border-radius: 4px 0 0 4px;'
           v-model='currentLocale'
           )
-        v-text-field(
-          ref='pathIpt'
-          solo
-          hide-details
-          prefix='/'
-          v-model='currentPath'
-          flat
-          clearable
-          style='border-radius: 0 4px 4px 0;'
-        )
+        .page-selector-path-inputs
+          v-text-field(
+            dense
+            outlined
+            hide-details
+            readonly
+            label='选择文件夹'
+            :value='currentFolderDisplay'
+            )
+          v-text-field(
+            ref='pathIpt'
+            dense
+            outlined
+            hide-details='auto'
+            clearable
+            label='文章路径名'
+            hint='不支持 /，输入后会自动转换为 -'
+            persistent-hint
+            v-model='currentSlug'
+            )
+          .page-selector-final-path
+            span 最终路径：
+            code /{{compiledPath}}
       v-card-chin
         v-spacer
         v-btn(text, @click='close') {{$t('common:actions.cancel')}}
@@ -102,6 +137,8 @@
 <script>
 import _ from 'lodash'
 import gql from 'graphql-tag'
+
+import setPageFolderMetaMutation from 'gql/common/common-pages-mutation-folder-meta.gql'
 
 const localeSegmentRegex = /^[A-Z]{2}(-[A-Z]{2})?$/i
 
@@ -140,13 +177,18 @@ export default {
       searchLoading: false,
       currentLocale: siteConfig.lang,
       currentFolderPath: '',
+      currentSlug: 'new-page',
       currentPath: 'new-page',
+      newFolderTitle: '',
+      newFolderName: '',
+      virtualFolderId: -1,
       currentPage: null,
       currentNode: [0],
       openNodes: [0],
       tree: [
         {
           id: 0,
+          path: '',
           title: '/ (root)',
           children: []
         }
@@ -182,14 +224,36 @@ export default {
     currentPages () {
       return _.sortBy(_.filter(this.pages, ['parent', _.head(this.currentNode) || 0]), ['title', 'path'])
     },
+    folderPaneFlex () {
+      return this.$vuetify.breakpoint.xsOnly ? 'xs12' : 'xs5'
+    },
+    pagesPaneFlex () {
+      return this.$vuetify.breakpoint.xsOnly ? 'xs12' : 'xs7'
+    },
+    currentSlugCompiled () {
+      return this.compilePathSegment(this.currentSlug)
+    },
+    compiledNewFolderName () {
+      return this.compilePathSegment(this.newFolderName)
+    },
+    compiledPath () {
+      return _.compact([this.currentFolderPath, this.currentSlugCompiled]).join('/')
+    },
+    currentFolderDisplay () {
+      return this.currentFolderPath ? `/${this.currentFolderPath}` : '/'
+    },
     isValidPath () {
-      if (!this.currentPath) {
+      const targetPath = this.mustExist ? this.currentPath : this.compiledPath
+      if (!targetPath) {
+        return false
+      }
+      if (!this.mustExist && !this.currentSlugCompiled) {
         return false
       }
       if (this.mustExist && !this.currentPage) {
         return false
       }
-      const firstSection = _.head(this.currentPath.split('/'))
+      const firstSection = _.head(targetPath.split('/'))
       if (firstSection.length <= 1) {
         return false
       } else if (localeSegmentRegex.test(firstSection)) {
@@ -207,11 +271,23 @@ export default {
   watch: {
     isShown (newValue, oldValue) {
       if (newValue && !oldValue) {
-        this.currentPath = this.path
         this.currentLocale = this.locale
         _.delay(() => {
-          this.$refs.pathIpt.focus()
+          this.setPathParts(this.path)
+          if (this.$refs.pathIpt) {
+            this.$refs.pathIpt.focus()
+          }
         })
+      }
+    },
+    currentSlug (newValue) {
+      const compiled = this.compilePathSegment(newValue)
+      if (newValue !== compiled) {
+        this.$nextTick(() => {
+          this.currentSlug = compiled
+        })
+      } else {
+        this.updateCurrentPath()
       }
     },
     currentNode (newValue, oldValue) {
@@ -220,10 +296,14 @@ export default {
           this.currentNode = oldValue
         })
       } else {
-        const current = _.find(this.all, ['id', newValue[0]])
+        const current = this.getCurrentFolderById(newValue[0])
+
+        if (!this.mustExist && this.currentPage) {
+          this.currentPage = null
+        }
 
         if (this.openNodes.indexOf(newValue[0]) < 0) { // auto open and load children
-          if (current) {
+          if (current && current.parent !== undefined) {
             if (this.openNodes.indexOf(current.parent) < 0) {
               this.$nextTick(() => {
                 this.openNodes.push(current.parent)
@@ -235,12 +315,17 @@ export default {
           })
         }
 
-        this.currentPath = _.compact([_.get(current, 'path', ''), _.last(this.currentPath.split('/'))]).join('/')
+        this.currentFolderPath = _.get(current, 'path', '')
+        this.updateCurrentPath()
       }
     },
     currentPage (newValue, oldValue) {
       if (!_.isEmpty(newValue)) {
-        this.currentPath = newValue.path
+        if (this.mustExist) {
+          this.currentPath = newValue.path
+        } else {
+          this.setPathParts(newValue.path)
+        }
       }
     },
     currentLocale (newValue, oldValue) {
@@ -248,15 +333,19 @@ export default {
         this.tree = [
           {
             id: 0,
+            path: '',
             title: '/ (root)',
             children: []
           }
         ]
         this.currentNode = [0]
         this.openNodes = [0]
+        this.currentFolderPath = ''
+        this.currentPage = null
         this.pages = []
         this.all = []
         this.treeViewCacheId += 1
+        this.updateCurrentPath()
       })
     }
   },
@@ -265,16 +354,109 @@ export default {
       this.isShown = false
     },
     open() {
+      this.updateCurrentPath()
+      const targetPath = this.mustExist ? this.currentPath : this.compiledPath
       const exit = this.openHandler({
         locale: this.currentLocale,
-        path: this.currentPath,
+        path: targetPath,
         id: (this.mustExist && this.currentPage) ? this.currentPage.pageId : 0
       })
       if (exit !== false) {
         this.close()
       }
     },
+    compilePathSegment (value) {
+      return String(value || '')
+        .trim()
+        .replace(/[\\/]+/g, '-')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+    },
+    setPathParts (path) {
+      const parts = _.compact(String(path || 'new-page').split('/'))
+      const folderPath = _.initial(parts).join('/')
+      this.currentFolderPath = folderPath
+      this.currentSlug = this.compilePathSegment(_.last(parts) || 'new-page')
+      const folder = _.find(this.all, item => item.isFolder && item.path === folderPath)
+      if (folder) {
+        this.currentNode = [folder.id]
+      } else if (!folderPath) {
+        this.currentNode = [0]
+      }
+      this.updateCurrentPath()
+    },
+    updateCurrentPath () {
+      this.currentPath = this.compiledPath
+    },
+    getCurrentFolderById (id) {
+      if (id === 0) {
+        return this.tree[0]
+      }
+      return _.find(this.all, ['id', id]) || this.tree[0]
+    },
+    async addVirtualFolder () {
+      const folderSlug = this.compiledNewFolderName
+      if (!folderSlug) { return }
+      const folderTitle = _.trim(this.newFolderTitle) || folderSlug
+
+      const parent = this.getCurrentFolderById(_.head(this.currentNode) || 0)
+      const parentId = _.get(parent, 'id', 0)
+      const parentPath = _.get(parent, 'path', '')
+      const folderPath = _.compact([parentPath, folderSlug]).join('/')
+      const existingFolder = _.find(this.all, item => item.isFolder && item.path === folderPath)
+
+      if (existingFolder) {
+        this.currentNode = [existingFolder.id]
+        this.newFolderTitle = ''
+        this.newFolderName = ''
+        return
+      }
+
+      const newFolder = {
+        id: this.virtualFolderId,
+        path: folderPath,
+        title: folderTitle,
+        isFolder: true,
+        pageId: 0,
+        parent: parentId,
+        virtual: true,
+        children: []
+      }
+      this.virtualFolderId -= 1
+      await this.saveFolderMeta(folderPath, folderTitle)
+
+      if (!parent.children) {
+        this.$set(parent, 'children', [])
+      }
+      parent.children.push(newFolder)
+      this.all = _.unionBy(this.all, [newFolder], 'id')
+      if (this.openNodes.indexOf(parentId) < 0) {
+        this.openNodes.push(parentId)
+      }
+      this.currentNode = [newFolder.id]
+      this.newFolderTitle = ''
+      this.newFolderName = ''
+    },
+    async saveFolderMeta (path, title) {
+      if (!path || !title) { return }
+      try {
+        await this.$apollo.mutate({
+          mutation: setPageFolderMetaMutation,
+          variables: {
+            locale: this.currentLocale,
+            path,
+            title
+          }
+        })
+      } catch (err) {
+        this.$store.commit('pushGraphError', err)
+      }
+    },
     async fetchFolders (item) {
+      if (item.virtual) {
+        return
+      }
       this.searchLoading = true
       const resp = await this.$apollo.query({
         query: gql`
@@ -299,7 +481,8 @@ export default {
         }
       })
       const items = _.get(resp, 'data.pages.tree', [])
-      const itemFolders = _.filter(items, ['isFolder', true]).map(f => ({...f, children: []}))
+      const virtualFolders = _.filter(_.get(item, 'children', []), 'virtual')
+      const itemFolders = _.unionBy(_.filter(items, ['isFolder', true]).map(f => ({...f, children: []})), virtualFolders, 'path')
       const itemPages = _.filter(items, i => i.pageId > 0)
       if (itemFolders.length > 0) {
         item.children = itemFolders
@@ -307,7 +490,7 @@ export default {
         item.children = undefined
       }
       this.pages = _.unionBy(this.pages, itemPages, 'id')
-      this.all = _.unionBy(this.all, items, 'id')
+      this.all = _.unionBy(this.all, items, virtualFolders, 'id')
 
       this.searchLoading = false
     }
@@ -318,11 +501,244 @@ export default {
 <style lang='scss'>
 
 .page-selector {
+  overflow: hidden;
+  background-color: #FFF !important;
+  border-radius: 10px !important;
+  color: #171c19;
+
+  .page-selector-header {
+    background-color: #3248F2 !important;
+    box-shadow: none !important;
+  }
+
+  .page-selector-body {
+    border-bottom: 1px solid #ECEEF1;
+  }
+
+  .page-selector-folders,
+  .page-selector-pages {
+    background-color: #FFF;
+  }
+
+  .page-selector-folders {
+    border-right: 1px solid #ECEEF1;
+  }
+
+  .page-selector-toolbar {
+    background-color: #FFF !important;
+    border-bottom: 1px solid #ECEEF1 !important;
+    color: #171c19 !important;
+
+    .v-icon {
+      color: #637381 !important;
+    }
+  }
+
+  .page-selector-scroll {
+    background-color: #FFF;
+  }
+
+  .page-selector-tree {
+    padding: 8px;
+  }
+
   .v-treeview-node__label {
+    color: #171c19;
     font-size: 13px;
   }
+
   .v-treeview-node__content {
     cursor: pointer;
+    border-radius: 6px;
+
+    &:hover {
+      background-color: #F6F7F9;
+    }
+  }
+
+  .v-treeview-node--active .v-treeview-node__content {
+    background-color: #F6F7F9;
+
+    .v-treeview-node__label,
+    .v-icon {
+      color: #3248F2 !important;
+      font-weight: 500;
+    }
+  }
+
+  .page-selector-new-folder {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #ECEEF1;
+    background-color: #FFF;
+
+    .v-btn {
+      min-width: 64px;
+      box-shadow: none !important;
+    }
+  }
+
+  .page-selector-page-list {
+    .v-list-item {
+      min-height: 40px;
+      color: #171c19;
+
+      &:hover {
+        background-color: #F6F7F9;
+      }
+    }
+
+    .v-list-item--active {
+      background-color: #F6F7F9;
+
+      .v-list-item__title,
+      .v-icon {
+        color: #3248F2 !important;
+      }
+    }
+  }
+
+  .page-selector-empty {
+    margin: 16px;
+    border: 1px solid #ECEEF1;
+    border-radius: 8px;
+  }
+
+  .page-selector-path-actions {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px !important;
+    background-color: #F6F7F9 !important;
+    border-bottom: 1px solid #ECEEF1;
+  }
+
+  .page-selector-locale {
+    flex: 0 0 104px;
+
+    .v-input__slot {
+      background-color: #FFF !important;
+      border: 1px solid #ECEEF1;
+      box-shadow: none !important;
+    }
+  }
+
+  .page-selector-path-inputs {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(180px, .9fr) minmax(220px, 1.1fr);
+    gap: 10px 12px;
+
+    .v-input__slot {
+      background-color: #FFF !important;
+      box-shadow: none !important;
+    }
+
+    fieldset {
+      border-color: #ECEEF1 !important;
+    }
+
+    .v-input--is-focused fieldset {
+      border-color: #3248F2 !important;
+    }
+  }
+
+  .page-selector-final-path {
+    grid-column: 1 / -1;
+    color: #637381;
+    font-size: 12px;
+
+    code {
+      padding: 2px 6px;
+      color: #171c19;
+      background-color: #FFF;
+      border: 1px solid #ECEEF1;
+      border-radius: 4px;
+      box-shadow: none;
+    }
+  }
+
+  .v-card__actions,
+  .v-card-chin {
+    background-color: #FFF;
+  }
+
+  @at-root .theme--dark & {
+    background-color: #181820 !important;
+    color: #FFF;
+
+    .page-selector-body,
+    .page-selector-folders,
+    .page-selector-toolbar,
+    .page-selector-new-folder,
+    .page-selector-path-actions,
+    .page-selector-empty {
+      border-color: #2f2f3a !important;
+    }
+
+    .page-selector-folders,
+    .page-selector-pages,
+    .page-selector-toolbar,
+    .page-selector-scroll,
+    .page-selector-new-folder,
+    .v-card__actions,
+    .v-card-chin {
+      background-color: #181820 !important;
+      color: #FFF !important;
+    }
+
+    .page-selector-path-actions {
+      background-color: #202027 !important;
+    }
+
+    .v-treeview-node__label,
+    .page-selector-page-list .v-list-item,
+    .page-selector-final-path code {
+      color: #FFF;
+    }
+
+    .v-treeview-node__content:hover,
+    .v-treeview-node--active .v-treeview-node__content,
+    .page-selector-page-list .v-list-item:hover,
+    .page-selector-page-list .v-list-item--active {
+      background-color: #202027;
+    }
+
+    .page-selector-locale .v-input__slot,
+    .page-selector-path-inputs .v-input__slot,
+    .page-selector-final-path code {
+      background-color: #181820 !important;
+      border-color: #2f2f3a;
+    }
+
+    .page-selector-path-inputs fieldset {
+      border-color: #2f2f3a !important;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .page-selector {
+    .page-selector-body {
+      display: block !important;
+    }
+
+    .page-selector-folders {
+      border-right: none;
+      border-bottom: 1px solid #ECEEF1;
+    }
+
+    .page-selector-path-actions {
+      display: block;
+    }
+
+    .page-selector-locale {
+      margin-bottom: 10px;
+    }
+
+    .page-selector-path-inputs {
+      grid-template-columns: 1fr;
+    }
   }
 }
 

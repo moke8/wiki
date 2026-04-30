@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:wiki.51zidan.com)",
+      "WebFetch(domain:www.51zidan.com)",
+      "Bash(git checkout -- \"client/components/comments.vue\")",
+      "Bash(npx eslint --format codeframe \"client/components/common/ai-chat.vue\")",
+      "Bash(node -e \"const {Client}=require(''pg'');const {OpenAI}=require(''openai'');(async()=>{const c=new Client({host:''localhost'',port:15432,user:''wikijs'',password:''wikijsrocks'',database:''wiki''});await c.connect();const {rows:[{config}]}=await c.query(\"\"SELECT config FROM \\\"\"searchEngines\\\"\" WHERE key=''vector''\"\");await c.end();const client=new OpenAI({baseURL:config.embeddingBaseUrl,apiKey:config.embeddingApiKey});const resp=await client.embeddings.create({model:config.embeddingModel,input:[''子弹人力云公司基本信息''],dimensions:parseInt(config.embeddingDimensions,10)||1024});console.log({model:config.embeddingModel,dimensionsRequested:config.embeddingDimensions,dataLength:resp.data&&resp.data.length,embeddingLength:resp.data&&resp.data[0]&&resp.data[0].embedding&&resp.data[0].embedding.length,usage:resp.usage});})().catch(e=>{console.error(''ERROR'',e.status,e.code,e.message);if(e.response)console.error(e.response.data);process.exit(1)})\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

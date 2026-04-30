@@ -1,40 +1,39 @@
 <template lang="pug">
-  div
-    .pa-3.d-flex(:class='$vuetify.theme.dark ? `grey darken-5` : `blue darken-3`')
-      v-btn(
-        depressed
-        :color='$vuetify.theme.dark ? `grey darken-4` : `blue darken-2`'
-        style='min-width:0;'
+  .zidan-sidebar
+    .zidan-sidebar-home
+      v-btn.zidan-sidebar-home-btn(
+        text
+        block
         @click='goHome'
         :aria-label='$t(`common:header.home`)'
-        )
-        v-icon(size='20') mdi-home
-    v-divider
-    v-treeview.py-2.nav-sidebar-tree(
-      :items='treeItems'
-      :active.sync='activeNodes'
-      :open.sync='openNodes'
-      :load-children='fetchTreeChildren'
-      item-key='id'
-      item-text='title'
-      dense
-      activatable
-      hoverable
-      open-on-click
-      transition
-      :class='color'
-      :dark='dark'
-    )
-      template(slot='prepend', slot-scope='{ item, open }')
-        v-icon(v-if='item.isFolder', size='20') mdi-{{ open ? 'folder-open' : 'folder' }}
-        v-icon(v-else, size='20') mdi-text-box
-      template(slot='label', slot-scope='{ item }')
-        a.nav-sidebar-tree-label(
-          v-if='item.pageId > 0'
-          :href='`/` + item.locale + `/` + item.path'
-          :class='{ "is-active": path === item.path }'
-        ) {{ item.title }}
-        span.nav-sidebar-tree-label(v-else) {{ item.title }}
+      )
+        v-icon(size='18', left) mdi-home
+        span {{ $t('common:header.home') }}
+    v-divider.mx-3
+    .zidan-dir-tree
+      v-treeview.zidan-dir-tree-view(
+        :items='treeItems'
+        :active.sync='activeNodes'
+        :open.sync='openNodes'
+        :load-children='fetchTreeChildren'
+        item-key='id'
+        item-text='title'
+        dense
+        activatable
+        hoverable
+        open-on-click
+        transition
+      )
+        template(slot='prepend', slot-scope='{ item, open }')
+          v-icon.zidan-dir-item-icon(v-if='item.isFolder', size='16') mdi-{{ open ? 'folder-open' : 'folder' }}
+          v-icon.zidan-dir-item-icon(v-else, size='16') mdi-file-document-outline
+        template(slot='label', slot-scope='{ item }')
+          a.zidan-dir-item-label(
+            v-if='item.pageId > 0'
+            :href='`/` + item.locale + `/` + item.path'
+            :class='{ "is-active": path === item.path }'
+          ) {{ item.title }}
+          span.zidan-dir-item-label(v-else) {{ item.title }}
 </template>
 
 <script>
@@ -77,14 +76,6 @@ const treeContextQuery = gql`
 
 export default {
   props: {
-    color: {
-      type: String,
-      default: 'primary'
-    },
-    dark: {
-      type: Boolean,
-      default: true
-    },
     items: {
       type: Array,
       default: () => []
@@ -239,9 +230,82 @@ export default {
 </script>
 
 <style lang="scss">
-.nav-sidebar-tree {
+.zidan-sidebar {
+  background-color: #FFF;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 10px;
+
+  @at-root .theme--dark & {
+    background-color: #1a1a2e;
+  }
+
+  .v-divider {
+    display: none !important;
+  }
+
+  &-home {
+    padding: 0 0 8px;
+
+    &-btn {
+      justify-content: flex-start !important;
+      min-height: 34px !important;
+      border-radius: 6px !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
+      color: #717572 !important;
+      font-weight: 500 !important;
+
+      .v-icon {
+        color: #717572 !important;
+      }
+
+      &:hover {
+        color: #171c19 !important;
+        background-color: #F6F7F9 !important;
+
+        .v-icon {
+          color: #171c19 !important;
+        }
+      }
+
+      @at-root .theme--dark & {
+        color: #919EAB !important;
+
+        .v-icon {
+          color: #919EAB !important;
+        }
+      }
+    }
+  }
+}
+
+.zidan-dir-tree {
+  padding: 0;
+}
+
+.zidan-dir-tree-view {
+  padding: 0 !important;
+  background-color: transparent !important;
+
   .v-treeview-node__root {
-    min-height: 40px;
+    min-height: 34px;
+    border-radius: 6px;
+    color: #717572 !important;
+
+    &:hover {
+      background-color: #F6F7F9;
+    }
+  }
+
+  .v-treeview-node--active .v-treeview-node__root {
+    background-color: #F6F7F9;
+
+    .zidan-dir-item-label,
+    .zidan-dir-item-icon {
+      color: #3248F2 !important;
+      font-weight: 500;
+    }
   }
 
   .v-treeview-node__label {
@@ -249,10 +313,16 @@ export default {
   }
 }
 
-.nav-sidebar-tree-label {
+.zidan-dir-item-icon {
+  color: #717572 !important;
+}
+
+.zidan-dir-item-label {
   display: block;
   min-width: 0;
   color: inherit !important;
+  font-size: 0.84rem;
+  line-height: 1.45;
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
@@ -263,7 +333,28 @@ export default {
   }
 
   &.is-active {
+    color: #3248F2 !important;
     font-weight: 500;
+  }
+}
+
+.theme--dark {
+  .zidan-dir-tree-view {
+    .v-treeview-node__root {
+      color: #919EAB !important;
+
+      &:hover {
+        background-color: #202027;
+      }
+    }
+
+    .v-treeview-node--active .v-treeview-node__root {
+      background-color: #202027;
+    }
+  }
+
+  .zidan-dir-item-icon {
+    color: #919EAB !important;
   }
 }
 </style>

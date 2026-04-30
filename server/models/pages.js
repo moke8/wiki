@@ -42,11 +42,13 @@ module.exports = class Page extends Model {
         title: {type: 'string'},
         description: {type: 'string'},
         isPublished: {type: 'boolean'},
+        isVectorized: {type: 'boolean'},
         privateNS: {type: 'string'},
         publishStartDate: {type: 'string'},
         publishEndDate: {type: 'string'},
         content: {type: 'string'},
         contentType: {type: 'string'},
+        vectorizedAt: {type: 'string'},
 
         createdAt: {type: 'string'},
         updatedAt: {type: 'string'}
@@ -721,6 +723,19 @@ module.exports = class Page extends Model {
       action: 'moved',
       versionDate: page.updatedAt
     })
+
+    const sourceParentPath = _.initial(page.path.split('/')).join('/')
+    const destinationParentPath = _.initial(opts.destinationPath.split('/')).join('/')
+
+    // -> Copy folder display metadata to moved path parents
+    if (sourceParentPath && destinationParentPath) {
+      await WIKI.models.pageFolderMeta.copyMeta({
+        sourceLocale: page.localeCode,
+        sourcePath: sourceParentPath,
+        destinationLocale: opts.destinationLocale,
+        destinationPath: destinationParentPath
+      })
+    }
 
     const destinationHash = pageHelper.generateHash({ path: opts.destinationPath, locale: opts.destinationLocale, privateNS: opts.isPrivate ? 'TODO' : '' })
 

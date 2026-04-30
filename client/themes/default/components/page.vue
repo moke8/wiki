@@ -337,6 +337,17 @@
     nav-footer
     notify
     search-results
+    ai-chat(
+      v-if='!printView'
+      :page-id='pageId'
+      :locale='locale'
+      :path='path'
+      color='primary'
+      :small='true'
+      button-class='btn-animate-edit'
+      :bottom-offset='24'
+      :side-offset='$vuetify.breakpoint.mdAndUp ? 82 : 65'
+    )
     v-fab-transition
       v-btn(
         v-if='upBtnShown'
