@@ -1,3 +1,110 @@
+# 本仓库改动说明
+
+> 本仓库基于 Wiki.js 二次开发。以下内容用于说明本仓库相对官方 Wiki.js 的主要改动、开发方式和部署方式。下方原官方 README 内容保持不变。
+
+## 主要功能改动
+
+- **Zidan 主题**
+  - 新增并启用 `zidan` 主题，包含页面布局、左侧目录树、右侧目录/元信息栏、页脚、搜索结果列表、悬浮按钮、暗色模式等主题定制。
+  - 主题文件主要位于 `client/themes/zidan/`。
+  - 主题列表中注册了 `zidan`，可在后台主题设置中选择。
+  - zidan 主题会根据后台 `/a/general` 配置的 Logo URL 动态设置浏览器 favicon；未配置 Logo 时回退到原 `/favicon.ico`。
+
+- **文章数据向量化 / 语义搜索**
+  - 新增基于 PostgreSQL + pgvector 的文章向量化能力。
+  - 支持通过 OpenAI 兼容的 Embedding API 生成文章分块向量。
+  - 支持向量检索相关配置，设计说明见 `docs/vector-search-design.md`。
+  - 本地开发和生产 Docker 配置均使用 `pgvector/pgvector:pg17` 作为数据库镜像。
+
+- **AI 问答**
+  - 新增页面侧 AI Chat / AI 问答入口与前端组件。
+  - AI 问答与向量检索能力配合使用，用于基于知识库内容进行问答。
+  - 前端组件主要位于 `client/components/common/ai-chat.vue`，zidan 页面中已集成入口。
+
+- **文件夹别名 / 目录展示增强**
+  - 增强目录树展示能力，支持更适合知识库导航的文件夹展示与别名/标题化展示场景。
+  - zidan 主题左侧目录树位于 `client/themes/zidan/components/nav-sidebar.vue`。
+
+- **界面与交互修正**
+  - 优化 zidan 主题下搜索栏、搜索结果列表、编辑悬浮按钮、AI Chat 悬浮按钮、返回顶部按钮等样式。
+  - 修复 Vuex `startLoading` 不存在导致的 `[vuex] unknown action type: startLoading` 报错。
+
+## 开发方式
+
+本仓库开发模式为：**依赖服务使用 Docker，Wiki.js 应用在宿主机通过 npm/yarn 启动**。
+
+### 1. 启动本地依赖服务
+
+```bash
+cd docker/dev
+docker compose up -d
+```
+
+该环境只启动开发依赖服务：
+
+- PostgreSQL + pgvector：`localhost:15432`
+- Adminer：`http://localhost:3001`
+
+> Adminer 仅用于本地查看和调试数据库，不是 Wiki.js 管理后台。Wiki.js 管理后台仍是应用内 `/a`。
+
+### 2. 启动 Wiki.js 开发服务
+
+在项目根目录启动：
+
+```bash
+CONFIG_FILE=docker/dev/config.yml npm run dev
+```
+
+Windows PowerShell 可使用：
+
+```powershell
+$env:CONFIG_FILE="docker/dev/config.yml"
+npm run dev
+```
+
+如果使用 yarn：
+
+```bash
+CONFIG_FILE=docker/dev/config.yml yarn dev
+```
+
+> 注意：宿主机开发连接 Docker 数据库时，`docker/dev/config.yml` 应指向 `localhost:15432`。
+
+## 生产部署方式
+
+本仓库包含源码改动，生产环境不应直接使用官方镜像 `requarks/wiki:2`，否则不会包含 zidan 主题、向量化、AI 问答等本仓库改动。
+
+生产部署使用当前源码构建自定义镜像：
+
+```bash
+cd docker/prod
+cp .env.example .env
+# 修改 .env 中的 POSTGRES_PASSWORD 等配置
+docker compose up -d --build
+```
+
+生产部署配置位于：
+
+- `docker/prod/docker-compose.yml`
+- `docker/prod/.env.example`
+
+生产 compose 会：
+
+- 使用 `dev/build/Dockerfile` 从当前源码构建 Wiki.js 镜像。
+- 使用 `pgvector/pgvector:pg17` 作为 PostgreSQL 数据库。
+- 使用 Docker volume 持久化数据库和 Wiki.js data 目录。
+
+更新应用镜像：
+
+```bash
+cd docker/prod
+docker compose up -d --build --force-recreate --no-deps wiki
+```
+
+> 修改前端、主题、Vue 组件或主题 JS 后，必须重新构建镜像或重新执行前端构建；仅重启 Node 服务不会更新已打包的 `assets` 文件。
+
+---
+
 <div align="center">
 
 <picture>

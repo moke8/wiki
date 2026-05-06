@@ -1,0 +1,35 @@
+# Wiki.js local dependency services for host npm run dev
+# Start: docker compose up -d
+# PostgreSQL: localhost:15432
+# Adminer: http://localhost:3001
+
+version: "3"
+
+services:
+  db:
+    container_name: wiki-dev-db
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_USER: wikijs
+      POSTGRES_PASSWORD: wikijsrocks
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wikijs -d wiki"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  adminer:
+    container_name: wiki-dev-adminer
+    image: adminer:latest
+    ports:
+      - "3001:8080"
+    depends_on:
+      - db
+
+volumes:
+  db-data:
