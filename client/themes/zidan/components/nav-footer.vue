@@ -114,7 +114,7 @@ export default {
   &-logo-img {
     flex: 0 0 auto;
     width: 104px;
-    max-width: 104px;
+    max-width: 104px !important;
     height: 36px;
     margin-right: 12px;
   }
