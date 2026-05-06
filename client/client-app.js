@@ -184,7 +184,7 @@ let bootstrap = () => {
   // ====================================
 
   window.addEventListener('beforeunload', () => {
-    store.dispatch('startLoading')
+    store.commit('loadingStart', 'beforeunload')
   })
 
   const apolloProvider = new VueApollo({
