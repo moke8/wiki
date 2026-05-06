@@ -74,7 +74,11 @@ module.exports = {
     WIKI.data = appdata
     WIKI.version = packageInfo.version
     WIKI.releaseDate = packageInfo.releaseDate
-    WIKI.devMode = (packageInfo.dev === true)
+
+    const envDevMode = process.env.WIKI_DEV_MODE
+    WIKI.devMode = _.isString(envDevMode)
+      ? envDevMode.toLowerCase() === 'true'
+      : packageInfo.dev === true
   },
 
   /**

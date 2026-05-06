@@ -41,6 +41,7 @@ services:
       DB_SSL: "false"
       SSL_ACTIVE: "false"
       HA_ACTIVE: "false"
+      WIKI_DEV_MODE: "false"
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-default}
     ports:
