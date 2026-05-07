@@ -1,0 +1,50 @@
+// PRINT OVERRIDES
+@media print {
+  .v-main .contents {
+    color: #000;
+    background-color: #FFF;
+
+    .prismjs {
+      box-shadow: none;
+      background-color: #FFF;
+
+      > code {
+        color: #000;
+        box-shadow: none;
+        text-shadow: none;
+        white-space: pre-wrap !important;
+        overflow-wrap: break-word !important;
+      }
+    }
+  }
+}
+
+// Print overrides
+@media print {
+  .zidan-app .nav-header,
+  .zidan-app .v-navigation-drawer,
+  .zidan-app .v-btn--fab,
+  .zidan-app .page-col-sd,
+  .zidan-app .v-tooltip__content,
+  .zidan-app .zidan-footer {
+    display: none !important;
+  }
+
+  .zidan-app .layout {
+    display: block !important;
+  }
+
+  .zidan-app .page-col-content {
+    flex-basis: 100% !important;
+    flex-grow: 1 !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .zidan-app .v-main {
+    padding: 0 !important;
+    font-size: 14px;
+    background-color: #FFF;
+  }
+}
+

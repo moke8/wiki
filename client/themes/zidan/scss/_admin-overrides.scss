@@ -1,0 +1,336 @@
+// ZIDAN ADMIN LIGHTWEIGHT THEME
+.v-application.admin {
+  font-family: 'Gilroy', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: $zidan-text-body;
+
+  .application--wrap,
+  .v-application--wrap {
+    background-color: $zidan-bg-soft !important;
+  }
+
+  .primary {
+    background-color: $zidan-primary !important;
+    border-color: $zidan-primary !important;
+  }
+
+  .primary--text {
+    color: $zidan-primary !important;
+    caret-color: $zidan-primary !important;
+  }
+
+  .nav-header {
+    overflow: hidden;
+    background-color: $zidan-bg !important;
+    color: $zidan-text-body !important;
+    border-bottom: 1px solid $zidan-border !important;
+
+    .v-toolbar,
+    .v-toolbar__content,
+    .v-toolbar__extension,
+    .nav-header-inner {
+      background-color: $zidan-bg !important;
+      color: $zidan-text-body !important;
+    }
+
+    .v-toolbar__title,
+    .v-toolbar__title .subheading,
+    .v-btn,
+    .v-icon,
+    .overline {
+      color: $zidan-text-muted !important;
+    }
+
+    .v-toolbar__title .subheading {
+      color: $zidan-text-body !important;
+    }
+  }
+
+  .v-main {
+    background-color: $zidan-bg-soft !important;
+  }
+
+  .admin-sidebar {
+    background-color: $zidan-bg !important;
+    border-right: 1px solid $zidan-border !important;
+    box-shadow: none !important;
+
+    .v-navigation-drawer__content,
+    .v-list {
+      background-color: $zidan-bg !important;
+    }
+
+    .v-subheader {
+      color: $zidan-text-muted !important;
+      font-weight: 600;
+      letter-spacing: normal;
+    }
+
+    .v-list-item {
+      min-height: 40px;
+      margin: 2px 8px;
+      border-radius: $zidan-radius-sm;
+      color: $zidan-text-muted !important;
+
+      .v-icon,
+      .v-list-item__title {
+        color: $zidan-text-muted !important;
+      }
+
+      &:hover {
+        background-color: $zidan-bg-soft !important;
+        color: $zidan-text-body !important;
+
+        .v-icon,
+        .v-list-item__title {
+          color: $zidan-text-body !important;
+        }
+      }
+
+      &--active,
+      &.v-list__tile--active {
+        background-color: rgba($zidan-primary, .1) !important;
+        color: $zidan-primary !important;
+
+        .v-icon,
+        .v-list-item__title {
+          color: $zidan-primary !important;
+        }
+      }
+    }
+
+    .v-divider {
+      border-color: $zidan-border !important;
+    }
+
+    .v-chip {
+      background-color: $zidan-bg-soft !important;
+      border: 1px solid $zidan-border !important;
+    }
+  }
+
+  .v-btn {
+    letter-spacing: normal;
+    text-transform: none;
+    border-radius: $zidan-radius-sm;
+    box-shadow: none;
+  }
+
+  .v-card,
+  .v-menu__content,
+  .v-dialog,
+  .v-data-table {
+    border-radius: $zidan-radius !important;
+    box-shadow: $zidan-shadow-card !important;
+  }
+
+  .v-card,
+  .v-data-table {
+    border: 1px solid $zidan-border;
+  }
+
+  .v-data-table {
+    overflow: hidden;
+  }
+
+  .v-dialog {
+    overflow: hidden;
+  }
+
+  .v-tabs-bar,
+  .v-data-table-header,
+  .v-data-table-header th {
+    background-color: $zidan-bg-soft !important;
+  }
+
+  .v-data-table td,
+  .v-data-table th {
+    border-color: $zidan-border !important;
+  }
+
+  .v-input__slot,
+  .v-text-field--outlined fieldset,
+  .v-select__slot {
+    border-color: $zidan-border !important;
+  }
+
+  .v-input--is-focused fieldset,
+  .v-text-field--outlined:hover fieldset {
+    border-color: $zidan-primary !important;
+  }
+
+  .zidan-footer,
+  .zidan-page-footer {
+    display: block;
+
+    @media (min-width: 960px) {
+      margin-left: 300px;
+    }
+  }
+
+  .zidan-footer {
+    background-color: $zidan-bg;
+    color: $zidan-text-muted;
+    border-top: 1px solid $zidan-border;
+  }
+
+  .zidan-page-footer {
+    color: $zidan-text-muted;
+  }
+
+  @at-root .v-application--is-rtl#{&} {
+    .zidan-footer,
+    .zidan-page-footer {
+      @media (min-width: 960px) {
+        margin-left: 0;
+        margin-right: 300px;
+      }
+    }
+  }
+
+  code {
+    color: $zidan-primary;
+    background-color: rgba(175, 184, 193, .2);
+    border-radius: 4px;
+  }
+}
+
+.theme--dark.v-application.admin {
+  color: #FFF;
+
+  .application--wrap,
+  .v-application--wrap,
+  .v-main {
+    background-color: $zidan-bg-dark !important;
+  }
+
+  .primary {
+    background-color: $zidan-primary !important;
+    border-color: $zidan-primary !important;
+  }
+
+  .primary--text {
+    color: $zidan-primary-dark !important;
+    caret-color: $zidan-primary-dark !important;
+  }
+
+  .nav-header {
+    background-color: $zidan-surface-dark !important;
+    color: #FFF !important;
+    border-bottom-color: $zidan-border-dark !important;
+
+    .v-toolbar,
+    .v-toolbar__content,
+    .v-toolbar__extension,
+    .nav-header-inner {
+      background-color: $zidan-surface-dark !important;
+      color: #FFF !important;
+    }
+
+    .v-toolbar__title,
+    .v-toolbar__title .subheading,
+    .v-btn,
+    .v-icon,
+    .overline {
+      color: $zidan-text-muted-dark !important;
+    }
+  }
+
+  .admin-sidebar {
+    background-color: $zidan-surface-dark !important;
+    border-right-color: $zidan-border-dark !important;
+
+    .v-navigation-drawer__content,
+    .v-list {
+      background-color: $zidan-surface-dark !important;
+    }
+
+    .v-subheader,
+    .v-list-item,
+    .v-list-item .v-icon,
+    .v-list-item .v-list-item__title {
+      color: $zidan-text-muted-dark !important;
+    }
+
+    .v-list-item:hover {
+      background-color: $zidan-surface-dark-soft !important;
+
+      .v-icon,
+      .v-list-item__title {
+        color: #FFF !important;
+      }
+    }
+
+    .v-list-item--active,
+    .v-list__tile--active {
+      background-color: rgba($zidan-primary-dark, .16) !important;
+      color: $zidan-primary-dark !important;
+
+      .v-icon,
+      .v-list-item__title {
+        color: $zidan-primary-dark !important;
+      }
+    }
+
+    .v-divider {
+      border-color: $zidan-border-dark !important;
+    }
+
+    .v-chip {
+      background-color: $zidan-surface-dark-soft !important;
+      border-color: $zidan-border-dark !important;
+    }
+  }
+
+  .v-card,
+  .v-menu__content,
+  .v-dialog,
+  .v-data-table {
+    background-color: $zidan-surface-dark !important;
+    border-color: $zidan-border-dark !important;
+  }
+
+  .v-tabs-bar,
+  .v-data-table-header,
+  .v-data-table-header th {
+    background-color: $zidan-surface-dark-soft !important;
+  }
+
+  .v-data-table td,
+  .v-data-table th,
+  .v-input__slot,
+  .v-text-field--outlined fieldset,
+  .v-select__slot {
+    border-color: $zidan-border-dark !important;
+  }
+
+  .zidan-footer {
+    background-color: $zidan-surface-dark;
+    color: $zidan-text-muted-dark;
+    border-top-color: $zidan-border-dark;
+  }
+
+  .zidan-page-footer {
+    color: $zidan-text-muted-dark;
+  }
+
+  .zidan-footer-logo,
+  .zidan-footer-col-title {
+    color: #FFF;
+  }
+
+  .zidan-footer-desc,
+  .zidan-footer-link,
+  .zidan-footer-copy,
+  .zidan-footer-copy a {
+    color: $zidan-text-muted-dark !important;
+  }
+
+  .zidan-footer-copy {
+    border-top-color: $zidan-border-dark;
+  }
+
+  code {
+    color: $zidan-primary-dark;
+    background-color: rgba(148, 163, 184, .18);
+  }
+}

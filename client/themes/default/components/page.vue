@@ -374,11 +374,28 @@ import NavSidebar from './nav-sidebar.vue'
 import Prism from 'prismjs'
 import mermaid from 'mermaid'
 import { get, sync } from 'vuex-pathify'
+import gql from 'graphql-tag'
 import _ from 'lodash'
 import ClipboardJS from 'clipboard'
 import Vue from 'vue'
 
 /* global siteLangs */
+
+const treeContextQuery = gql`
+  query ($path: String, $locale: String!) {
+    pages {
+      tree(path: $path, mode: ALL, locale: $locale, includeAncestors: true) {
+        id
+        path
+        title
+        isFolder
+        pageId
+        parent
+        locale
+      }
+    }
+  }
+`
 
 Vue.component('Tabset', Tabset)
 
@@ -534,7 +551,8 @@ export default {
           }
         }
       },
-      winWidth: 0
+      winWidth: 0,
+      breadcrumbItems: []
     }
   },
   computed: {
@@ -551,11 +569,15 @@ export default {
       }
     },
     breadcrumbs() {
+      if (this.breadcrumbItems.length > 0) {
+        return this.breadcrumbItems
+      }
+      const parts = this.path.split('/').filter(value => value)
       return [{ path: '/', name: 'Home' }].concat(
-        _.reduce(this.path.split('/'), (result, value) => {
+        _.reduce(parts, (result, value, idx) => {
           result.push({
             path: _.get(_.last(result), 'path', this.locales.length > 0 ? `/${this.locale}` : '') + `/${value}`,
-            name: value
+            name: idx === parts.length - 1 ? this.title : value
           })
           return result
         }, []))
@@ -623,6 +645,7 @@ export default {
 
     // -> Check side navigation visibility
     this.handleSideNavVisibility()
+    this.loadBreadcrumbs()
     window.addEventListener('resize', _.debounce(() => {
       this.handleSideNavVisibility()
     }, 500))
@@ -668,6 +691,43 @@ export default {
         window.location.assign(`/${this.locale}/home`)
       } else {
         window.location.assign('/')
+      }
+    },
+    buildAncestorChain (items, currentItem) {
+      const chain = []
+      let parentId = currentItem ? currentItem.parent : 0
+      while (parentId) {
+        const parent = items.find(item => item.id === parentId)
+        if (!parent) {
+          break
+        }
+        chain.unshift(parent)
+        parentId = parent.parent
+      }
+      return chain
+    },
+    async loadBreadcrumbs () {
+      try {
+        const resp = await this.$apollo.query({
+          query: treeContextQuery,
+          fetchPolicy: 'cache-first',
+          variables: {
+            path: this.path,
+            locale: this.locale
+          }
+        })
+        const contextItems = (((resp || {}).data || {}).pages || {}).tree || []
+        const currentItem = contextItems.find(item => item.pageId === this.pageId) || contextItems.find(item => item.path === this.path)
+        if (!currentItem) {
+          return
+        }
+        const items = this.buildAncestorChain(contextItems, currentItem).concat([currentItem])
+        this.breadcrumbItems = [{ path: '/', name: 'Home' }].concat(items.map(item => ({
+          path: this.locales.length > 0 ? `/${item.locale}/${item.path}` : `/${item.path}`,
+          name: item.title
+        })))
+      } catch (err) {
+        this.breadcrumbItems = []
       }
     },
     toggleNavigation () {

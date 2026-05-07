@@ -235,11 +235,28 @@ import NavSidebar from './nav-sidebar.vue'
 import Prism from 'prismjs'
 import mermaid from 'mermaid'
 import { get, sync } from 'vuex-pathify'
+import gql from 'graphql-tag'
 import _ from 'lodash'
 import ClipboardJS from 'clipboard'
 import Vue from 'vue'
 
 /* global siteLangs */
+
+const treeContextQuery = gql`
+  query ($path: String, $locale: String!) {
+    pages {
+      tree(path: $path, mode: ALL, locale: $locale, includeAncestors: true) {
+        id
+        path
+        title
+        isFolder
+        pageId
+        parent
+        locale
+      }
+    }
+  }
+`
 
 Vue.component('Tabset', Tabset)
 
@@ -311,7 +328,8 @@ export default {
         easing: 'easeInOutCubic'
       },
       winWidth: 0,
-      activeTocAnchor: ''
+      activeTocAnchor: '',
+      breadcrumbItems: []
     }
   },
   computed: {
@@ -320,11 +338,15 @@ export default {
     commentsPerms: get('page/effectivePermissions@comments'),
     editShortcutsObj: get('page/editShortcuts'),
     breadcrumbs() {
+      if (this.breadcrumbItems.length > 0) {
+        return this.breadcrumbItems
+      }
+      const parts = this.path.split('/').filter(value => value)
       return [{ path: '/', name: 'Home' }].concat(
-        _.reduce(this.path.split('/'), (result, value) => {
+        _.reduce(parts, (result, value, idx) => {
           result.push({
             path: _.get(_.last(result), 'path', this.locales.length > 0 ? `/${this.locale}` : '') + `/${value}`,
-            name: value
+            name: idx === parts.length - 1 ? this.title : value
           })
           return result
         }, []))
@@ -386,6 +408,7 @@ export default {
   },
   mounted () {
     this.handleSideNavVisibility()
+    this.loadBreadcrumbs()
     window.addEventListener('resize', _.debounce(() => {
       this.handleSideNavVisibility()
     }, 500))
@@ -427,6 +450,43 @@ export default {
         window.location.assign(`/${this.locale}/home`)
       } else {
         window.location.assign('/')
+      }
+    },
+    buildAncestorChain (items, currentItem) {
+      const chain = []
+      let parentId = currentItem ? currentItem.parent : 0
+      while (parentId) {
+        const parent = items.find(item => item.id === parentId)
+        if (!parent) {
+          break
+        }
+        chain.unshift(parent)
+        parentId = parent.parent
+      }
+      return chain
+    },
+    async loadBreadcrumbs () {
+      try {
+        const resp = await this.$apollo.query({
+          query: treeContextQuery,
+          fetchPolicy: 'cache-first',
+          variables: {
+            path: this.path,
+            locale: this.locale
+          }
+        })
+        const contextItems = (((resp || {}).data || {}).pages || {}).tree || []
+        const currentItem = contextItems.find(item => item.pageId === this.pageId) || contextItems.find(item => item.path === this.path)
+        if (!currentItem) {
+          return
+        }
+        const items = this.buildAncestorChain(contextItems, currentItem).concat([currentItem])
+        this.breadcrumbItems = [{ path: '/', name: 'Home' }].concat(items.map(item => ({
+          path: this.locales.length > 0 ? `/${item.locale}/${item.path}` : `/${item.path}`,
+          name: item.title
+        })))
+      } catch (err) {
+        this.breadcrumbItems = []
       }
     },
     toggleNavigation () { this.navOpen = !this.navOpen },
@@ -477,835 +537,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss">
-.zidan-app {
-  font-family: 'Gilroy', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.zidan-app .nav-header {
-  overflow: hidden;
-  background-color: #FFF !important;
-  color: #171c19 !important;
-  border-bottom: 1px solid #ECEEF1 !important;
-
-  .v-toolbar,
-  .v-toolbar__content,
-  .v-toolbar__extension {
-    background-color: #FFF !important;
-    color: #171c19 !important;
-  }
-
-  .nav-header-inner {
-    background-color: #FFF !important;
-  }
-
-  .v-toolbar__title,
-  .v-toolbar__title .subheading,
-  .v-btn,
-  .v-icon {
-    color: #637381 !important;
-  }
-
-  .v-toolbar__title .subheading {
-    color: #171c19 !important;
-  }
-
-  .v-text-field {
-    .v-label,
-    input,
-    .v-input__icon .v-icon,
-    .v-input__prepend-inner .v-icon,
-    .v-input__append-inner .v-icon {
-      color: #637381 !important;
-      caret-color: #637381 !important;
-    }
-
-    input::placeholder {
-      color: #637381 !important;
-      opacity: 1;
-    }
-
-    .v-input__slot {
-      background-color: #F6F7F9 !important;
-      color: #171c19 !important;
-    }
-  }
-
-  .navHeaderSearch-enter-active,
-  .navHeaderSearch-leave-active,
-  .v-input.v-text-field {
-    .v-input__prepend-inner,
-    .v-input__append-inner,
-    .v-input__icon {
-      .v-icon,
-      .v-icon.white--text,
-      .v-icon.grey--text {
-        color: #637381 !important;
-        caret-color: #637381 !important;
-
-        &::before {
-          color: #637381 !important;
-        }
-      }
-    }
-  }
-
-  .v-btn[href="/t"] {
-    display: none !important;
-  }
-}
-
-.zidan-app .search-results {
-  background: rgba(246, 247, 249, .96) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-
-  &-container {
-    margin-top: 24px;
-    max-width: 920px;
-  }
-
-  .v-subheader {
-    height: auto;
-    padding: 0 4px 10px;
-    color: #637381 !important;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-
-  &-help,
-  &-loader,
-  &-none {
-    color: #637381 !important;
-  }
-
-  &-items,
-  &-suggestions {
-    overflow: hidden;
-    background-color: #FFF !important;
-    border: 1px solid #ECEEF1;
-    border-radius: 18px !important;
-    box-shadow: 0 18px 45px rgba(50, 72, 242, .08);
-  }
-
-  .v-list-item {
-    min-height: 82px;
-    transition: background-color .18s ease, transform .18s ease;
-
-    &:hover {
-      background-color: #F6F7FF !important;
-    }
-
-    &.highlighted {
-      background: linear-gradient(90deg, rgba(50, 72, 242, .12), rgba(50, 72, 242, .04)) !important;
-    }
-  }
-
-  .v-list-item__avatar {
-    border-radius: 14px;
-    background-color: #F6F7FF;
-  }
-
-  .v-list-item__title {
-    color: #171c19 !important;
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .v-list-item__subtitle,
-  .caption {
-    color: #637381 !important;
-  }
-
-  .v-divider {
-    border-color: #ECEEF1 !important;
-  }
-
-  .v-chip {
-    border-color: rgba(50, 72, 242, .28) !important;
-    color: #3248F2 !important;
-    font-weight: 700;
-  }
-
-  .v-pagination {
-    .v-pagination__item,
-    .v-pagination__navigation {
-      background-color: #FFF !important;
-      color: #637381 !important;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, .08) !important;
-    }
-
-    .v-pagination__item--active {
-      background-color: #3248F2 !important;
-      color: #FFF !important;
-    }
-  }
-
-  .v-btn {
-    border-color: rgba(50, 72, 242, .28) !important;
-    color: #3248F2 !important;
-  }
-
-  @at-root .theme--dark#{&} {
-    background: rgba(20, 20, 27, .96) !important;
-
-    .v-subheader,
-    .search-results-help,
-    .search-results-loader,
-    .search-results-none,
-    .v-list-item__subtitle,
-    .caption {
-      color: #A5ADBA !important;
-    }
-
-    .search-results-items,
-    .search-results-suggestions {
-      background-color: #1A1A2E !important;
-      border-color: #2A2A3A;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, .28);
-    }
-
-    .v-list-item:hover {
-      background-color: rgba(121, 134, 255, .1) !important;
-    }
-
-    .v-list-item.highlighted {
-      background: linear-gradient(90deg, rgba(121, 134, 255, .18), rgba(121, 134, 255, .06)) !important;
-    }
-
-    .v-list-item__avatar {
-      background-color: rgba(121, 134, 255, .1);
-    }
-
-    .v-list-item__title {
-      color: #F6F7F9 !important;
-    }
-
-    .v-divider {
-      border-color: #2A2A3A !important;
-    }
-
-    .v-pagination__item,
-    .v-pagination__navigation {
-      background-color: #1A1A2E !important;
-      color: #A5ADBA !important;
-    }
-  }
-}
-
-.zidan-app .v-navigation-drawer__border {
-  display: none !important;
-}
-
-.zidan-nav-drawer {
-  box-shadow: none !important;
-
-  .v-navigation-drawer__content {
-    background-color: #FFF;
-  }
-
-  @at-root .theme--dark & {
-    .v-navigation-drawer__content {
-      background-color: #1a1a2e;
-    }
-  }
-}
-
-.zidan-main {
-  background-color: #FFF;
-
-  @at-root .theme--dark & {
-    background-color: #14141B;
-  }
-}
-
-.zidan-breadcrumb-bar {
-  border-bottom: none !important;
-
-  .breadcrumbs-nav {
-    .v-btn {
-      min-width: 0;
-      &__content {
-        text-transform: none;
-      }
-    }
-    .v-breadcrumbs__divider:nth-child(2n) {
-      padding: 0 6px;
-    }
-    .v-breadcrumbs__divider:nth-child(2) {
-      padding: 0 6px 0 12px;
-    }
-  }
-}
-
-.zidan-page-header {
-  background-color: transparent;
-  padding: 0 0 16px 0;
-  margin-bottom: 0;
-  text-align: left;
-
-  &-content {
-    min-height: 48px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-.zidan-page-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111111;
-  line-height: 1.4;
-
-  @at-root .theme--dark & {
-    color: #FFFFFF;
-  }
-}
-
-.zidan-page-desc {
-  font-size: 0.875rem;
-  color: #637381;
-  margin-top: 4px;
-
-  @at-root .theme--dark & {
-    color: #919EAB;
-  }
-}
-
-// Right sidebar
-.zidan-right-sidebar {
-  align-self: flex-start;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-  -ms-overflow-style: none;
-  padding-left: 24px !important;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  &-inner {
-    padding: 16px;
-    color: #111111;
-    background-color: #FFF;
-    border: 1px solid #ECEEF1;
-    border-radius: 10px;
-    box-shadow: none;
-
-    @at-root .theme--dark & {
-      color: #FFFFFF;
-      background-color: #181820;
-      border-color: #2f2f3a;
-    }
-  }
-}
-
-.zidan-rs-section {
-  margin-bottom: 18px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.zidan-rs-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: normal;
-  color: #637381;
-  margin-bottom: 8px;
-
-  @at-root .theme--dark & {
-    color: #919EAB;
-  }
-}
-
-.zidan-rs-toc {
-  &-item {
-    margin-bottom: 2px;
-  }
-
-  &-link {
-    display: block;
-    font-size: 0.82rem;
-    color: #717572 !important;
-    text-decoration: none;
-    padding: 4px 6px;
-    cursor: pointer;
-    transition: color 0.15s, background-color 0.15s;
-    line-height: 1.55;
-    border-radius: 6px;
-
-    &:hover {
-      color: #171c19 !important;
-      background-color: #F6F7F9;
-      text-decoration: none;
-    }
-
-    &.is-active {
-      color: #3248F2 !important;
-      font-weight: 500;
-    }
-
-    &--sub {
-      padding-left: 18px;
-      font-size: 0.78rem;
-      color: #717572 !important;
-
-      &:hover {
-        color: #171c19 !important;
-      }
-
-      &.is-active {
-        color: #3248F2 !important;
-      }
-    }
-
-    @at-root .theme--dark & {
-      color: #919EAB !important;
-
-      &:hover {
-        color: #FFFFFF !important;
-        background-color: #202027;
-      }
-
-      &.is-active {
-        color: #7986FF !important;
-      }
-
-      &--sub {
-        color: #919EAB !important;
-
-        &:hover {
-          color: #FFFFFF !important;
-        }
-
-        &.is-active {
-          color: #7986FF !important;
-        }
-      }
-    }
-  }
-
-  &-children {
-    margin-top: 0;
-  }
-}
-
-.zidan-rs-tags {
-  display: flex;
-  flex-wrap: wrap;
-
-  .v-chip {
-    border-color: #ECEEF1 !important;
-    border-radius: 6px !important;
-    color: #111111 !important;
-    background-color: #F6F7F9 !important;
-
-    @at-root .theme--dark & {
-      border-color: #2f2f3a !important;
-      color: #FFFFFF !important;
-      background-color: #202027 !important;
-    }
-  }
-}
-
-.zidan-rs-meta {
-  font-size: 0.82rem;
-  color: #111111;
-
-  @at-root .theme--dark & {
-    color: #FFFFFF;
-  }
-
-  &-sub {
-    font-size: 0.75rem;
-    color: #637381;
-    margin-top: 2px;
-
-    @at-root .theme--dark & {
-      color: #919EAB;
-    }
-  }
-}
-
-.zidan-rs-actions {
-  display: flex;
-  gap: 6px;
-
-  .v-btn {
-    width: 28px;
-    height: 28px;
-    color: #637381;
-    background-color: #F6F7F9;
-    border-radius: 6px;
-
-    &:hover {
-      color: #111111;
-      background-color: #ECEEF1;
-    }
-
-    @at-root .theme--dark & {
-      color: #919EAB;
-      background-color: #202027;
-
-      &:hover {
-        color: #FFFFFF;
-        background-color: #2a2a33;
-      }
-    }
-  }
-}
-
-.zidan-content-container {
-  padding-left: 24px !important;
-  padding-right: 24px !important;
-  padding-top: 16px !important;
-
-  @media (min-width: 1264px) {
-    padding-left: 32px !important;
-    padding-right: 32px !important;
-  }
-
-  @media (max-width: 600px) {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-  }
-}
-
-.zidan-content-col,
-.zidan-content-col .contents {
-  text-align: left;
-}
-
-.page-edit-shortcuts {
-  margin-top: 8px;
-
-  .v-btn {
-    border: 1px solid #DDD !important;
-    border-radius: 4px;
-    color: #777;
-    background-color: #FFF !important;
-    margin-right: 4px;
-
-    @at-root .theme--dark & {
-      background-color: #222 !important;
-      border-color: #444 !important;
-      color: #CCC;
-    }
-
-    .v-icon {
-      color: #3248F2;
-    }
-  }
-}
-
-.zidan-edit-speed-dial {
-  .btn-animate-edit .v-icon {
-    color: #FFF !important;
-  }
-}
-
-// Comments
-.comments {
-  &-container {
-    border: 1px solid #ECEEF1;
-    border-radius: 10px;
-    margin-top: 2rem;
-    overflow: auto;
-    background-color: #FFF;
-
-    @at-root .theme--dark & {
-      background-color: #181820;
-      border-color: #2f2f3a;
-    }
-
-    .pt-5.text-center.body-2.blue-grey--text,
-    > .comments-main > div > .text-center.body-2.blue-grey--text,
-    hr.separator,
-    .separator {
-      display: none !important;
-    }
-
-    #discussion-new,
-    .comments-post-editcontent textarea,
-    .v-text-field input {
-      color: #171c19 !important;
-    }
-
-    .v-input__slot {
-      background-color: #FFF !important;
-      border-color: #ECEEF1 !important;
-      box-shadow: none !important;
-    }
-
-    .v-text-field--outlined fieldset {
-      border-color: #ECEEF1 !important;
-    }
-
-    .v-text-field--outlined:hover fieldset,
-    .v-input--is-focused fieldset {
-      border-color: #0063ff !important;
-    }
-
-    .v-label,
-    input::placeholder,
-    textarea::placeholder,
-    .caption,
-    .blue-grey--text,
-    .grey--text {
-      color: #637381 !important;
-    }
-
-    .v-icon {
-      color: #637381 !important;
-    }
-
-    .d-flex.align-center.pt-3 {
-      color: #637381;
-    }
-
-    .d-flex.align-center.pt-3 .v-btn,
-    .comments-post-editcontent .v-btn:last-child {
-      background-color: #0063ff !important;
-      color: #FFF !important;
-      border-radius: 6px;
-      box-shadow: none !important;
-
-      .v-icon {
-        color: #FFF !important;
-      }
-    }
-
-    .comments-post-editcontent .v-btn.mr-3 {
-      background-color: #FFF !important;
-      color: #637381 !important;
-      border: 1px solid #ECEEF1 !important;
-
-      .v-icon {
-        color: #637381 !important;
-      }
-    }
-
-    .v-divider {
-      border-color: #ECEEF1 !important;
-    }
-
-    .v-progress-circular {
-      color: #0063ff !important;
-    }
-
-    .v-timeline::before {
-      background: #ECEEF1 !important;
-    }
-
-    .v-timeline-item__dot {
-      box-shadow: none !important;
-      background-color: #FFF !important;
-      border: 1px solid #ECEEF1 !important;
-    }
-
-    .v-timeline-item__inner-dot,
-    .v-avatar,
-    .d-flex.align-center.pt-3 .v-btn,
-    .comments-post-editcontent .v-btn:last-child {
-      background-color: #0063ff !important;
-      color: #FFF !important;
-    }
-
-    .d-flex.align-center.pt-3 .v-btn .v-icon,
-    .comments-post-editcontent .v-btn:last-child .v-icon,
-    .v-avatar .white--text {
-      color: #FFF !important;
-    }
-
-    .v-timeline-item__inner-dot {
-      background-color: #0063ff !important;
-    }
-
-    .v-avatar {
-      background-color: #0063ff !important;
-      color: #FFF !important;
-    }
-
-    .comments-post {
-      .v-card {
-        background-color: #FFF !important;
-        border: 1px solid #ECEEF1;
-        border-radius: 10px;
-        box-shadow: none !important;
-      }
-
-      .v-card__text {
-        color: #171c19 !important;
-      }
-
-      &-name {
-        color: #171c19 !important;
-        font-size: .86rem !important;
-      }
-
-      &-date {
-        color: #919EAB !important;
-        letter-spacing: normal !important;
-        text-transform: none !important;
-      }
-
-      &-actions {
-        .v-icon {
-          color: #637381 !important;
-
-          &:hover {
-            color: #0063ff !important;
-          }
-        }
-      }
-
-      &-content {
-        color: #171c19;
-        font-size: .95rem;
-        line-height: 1.75;
-
-        p {
-          padding-top: .7rem;
-        }
-
-        a {
-          color: #0063ff !important;
-          text-decoration: none;
-
-          &:hover {
-            text-decoration: none;
-          }
-        }
-
-        code {
-          color: #171c19;
-          background-color: #F6F7F9;
-          border-radius: 4px;
-        }
-
-        pre > code {
-          color: #FFF;
-          background-color: #171c19;
-          border-radius: 6px;
-        }
-      }
-    }
-
-    @at-root .theme--dark & {
-      #discussion-new,
-      .comments-post-editcontent textarea,
-      .v-text-field input {
-        color: #FFF !important;
-      }
-
-      .v-input__slot {
-        background-color: #181820 !important;
-        border-color: #2f2f3a !important;
-      }
-
-      .v-text-field--outlined fieldset,
-      .v-divider,
-      .v-timeline-item__dot,
-      .comments-post .v-card,
-      .comments-post-editcontent .v-btn.mr-3 {
-        border-color: #2f2f3a !important;
-      }
-
-      .v-label,
-      input::placeholder,
-      textarea::placeholder,
-      .caption,
-      .blue-grey--text,
-      .grey--text,
-      .v-icon {
-        color: #919EAB !important;
-      }
-
-      .v-timeline::before {
-        background: #2f2f3a !important;
-      }
-
-      .v-timeline-item__dot,
-      .comments-post-editcontent .v-btn.mr-3 {
-        background-color: #181820 !important;
-      }
-
-      .comments-post {
-        .v-card {
-          background-color: #181820 !important;
-        }
-
-        .v-card__text,
-        &-name,
-        &-content {
-          color: #FFF !important;
-        }
-
-        &-content code {
-          color: #FFF;
-          background-color: #202027;
-        }
-      }
-    }
-  }
-
-  &-main {
-    background-color: transparent;
-    border-radius: 10px;
-    padding: 20px;
-  }
-}
-
-.zidan-page-footer {
-  display: block;
-
-  @media (min-width: 960px) {
-    margin-left: 260px;
-  }
-
-  @at-root .v-application--is-rtl & {
-    @media (min-width: 960px) {
-      margin-left: 0;
-      margin-right: 260px;
-    }
-  }
-}
-
-// Print overrides
-@media print {
-  .nav-header,
-  .v-navigation-drawer,
-  .v-btn--fab,
-  .page-col-sd,
-  .v-tooltip__content,
-  .zidan-footer {
-    display: none !important;
-  }
-
-  .layout {
-    display: block !important;
-  }
-
-  .page-col-content {
-    flex-basis: 100% !important;
-    flex-grow: 1 !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-  }
-
-  .v-main {
-    padding: 0 !important;
-    font-size: 14px;
-    background-color: #FFF;
-  }
-}
-</style>

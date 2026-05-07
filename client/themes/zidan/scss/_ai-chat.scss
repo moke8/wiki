@@ -1,0 +1,77 @@
+// ZIDAN AI CHAT
+.zidan-app .ai-chat {
+  &-fab,
+  .zidan-ai-chat-btn {
+    width: 40px !important;
+    height: 40px !important;
+    box-shadow: $zidan-shadow-primary !important;
+  }
+
+  &-panel,
+  .zidan-ai-chat-panel {
+    right: 24px;
+    bottom: 96px;
+    border: 1px solid $zidan-border;
+    border-radius: $zidan-radius !important;
+    box-shadow: $zidan-shadow-card !important;
+    overflow: hidden;
+  }
+
+  &-messages {
+    background-color: $zidan-bg-soft;
+  }
+
+  &-empty {
+    color: $zidan-text-muted;
+  }
+
+  &-bubble {
+    border-radius: $zidan-radius;
+  }
+
+  &-message-user .ai-chat-bubble {
+    color: #FFF;
+    background-color: $zidan-primary;
+  }
+
+  &-message-assistant .ai-chat-bubble {
+    color: $zidan-text-body;
+    background-color: $zidan-bg;
+    border: 1px solid $zidan-border;
+  }
+
+  &-input {
+    background-color: $zidan-bg;
+  }
+
+  &-sources a {
+    color: $zidan-primary;
+  }
+
+  @at-root .theme--dark.zidan-app .ai-chat {
+    &-panel,
+    .zidan-ai-chat-panel {
+      border-color: $zidan-border-dark;
+      background-color: $zidan-surface-dark;
+    }
+
+    &-messages {
+      background-color: $zidan-bg-dark;
+    }
+
+    &-empty {
+      color: $zidan-text-muted-dark;
+    }
+
+    &-message-assistant .ai-chat-bubble,
+    &-input {
+      color: #FFF;
+      background-color: $zidan-surface-dark-soft;
+      border-color: $zidan-border-dark;
+    }
+
+    &-sources a {
+      color: $zidan-primary-dark;
+    }
+  }
+}

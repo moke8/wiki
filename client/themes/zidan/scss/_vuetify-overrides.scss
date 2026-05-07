@@ -1,0 +1,175 @@
+// ZIDAN APPLICATION THEME TOKENS
+.zidan-app {
+  --zidan-primary: #{$zidan-primary};
+  --zidan-primary-hover: #{$zidan-primary-hover};
+  --zidan-primary-dark: #{$zidan-primary-dark};
+  --zidan-radius: #{$zidan-radius};
+  --zidan-radius-sm: #{$zidan-radius-sm};
+  --zidan-border: #{$zidan-border};
+  --zidan-text: #{$zidan-text};
+  --zidan-text-muted: #{$zidan-text-muted};
+
+  .primary {
+    background-color: $zidan-primary !important;
+    border-color: $zidan-primary !important;
+  }
+
+  .primary--text {
+    color: $zidan-primary !important;
+    caret-color: $zidan-primary !important;
+  }
+
+  .v-btn {
+    letter-spacing: normal;
+    text-transform: none;
+    border-radius: $zidan-radius-sm;
+    box-shadow: none;
+  }
+
+  .v-btn--fab.primary {
+    background-color: $zidan-primary !important;
+    border-color: $zidan-primary !important;
+    color: #FFF !important;
+    box-shadow: $zidan-shadow-primary !important;
+
+    &:hover,
+    &:focus,
+    &:active {
+      background-color: $zidan-primary !important;
+      border-color: $zidan-primary !important;
+      color: #FFF !important;
+    }
+
+    .v-icon {
+      color: #FFF !important;
+    }
+  }
+
+  .v-btn--fab.white {
+    border: 1px solid $zidan-border !important;
+    box-shadow: $zidan-shadow-card !important;
+
+    .v-icon {
+      color: $zidan-text-muted !important;
+    }
+
+    &:hover .v-icon {
+      color: $zidan-primary !important;
+    }
+  }
+
+  .v-btn--fab.red .v-icon {
+    color: #FFF !important;
+  }
+
+  .zidan-edit-speed-dial {
+    right: 24px !important;
+    left: auto !important;
+    bottom: 88px !important;
+
+    .v-btn--fab {
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+    }
+
+    .v-btn--fab:not(.primary):not(.red) .v-icon {
+      color: $zidan-text-muted !important;
+    }
+
+    .v-btn--fab:not(.primary):not(.red):hover .v-icon {
+      color: $zidan-primary !important;
+    }
+  }
+
+  @at-root .v-application--is-rtl#{&} .zidan-edit-speed-dial {
+    right: auto !important;
+    left: 24px !important;
+  }
+
+  .v-card,
+  .v-menu__content,
+  .v-dialog {
+    border-radius: $zidan-radius !important;
+    box-shadow: $zidan-shadow-card !important;
+  }
+
+  .v-card {
+    border: 1px solid $zidan-border;
+  }
+
+  .v-dialog {
+    overflow: hidden;
+  }
+
+  .v-input__slot,
+  .v-text-field--outlined fieldset {
+    border-color: $zidan-border !important;
+  }
+
+  @at-root .theme--dark.zidan-app {
+    --zidan-border: #{$zidan-border-dark};
+    --zidan-text-muted: #{$zidan-text-muted-dark};
+
+    .primary {
+      background-color: $zidan-primary !important;
+      border-color: $zidan-primary !important;
+    }
+
+    .primary--text {
+      color: $zidan-primary-dark !important;
+      caret-color: $zidan-primary-dark !important;
+    }
+
+    .v-btn--fab.white {
+      background-color: $zidan-surface-dark-soft !important;
+      border-color: $zidan-border-dark !important;
+
+      .v-icon {
+        color: $zidan-text-muted-dark !important;
+      }
+
+      &:hover .v-icon {
+        color: $zidan-primary-dark !important;
+      }
+    }
+
+    .zidan-edit-speed-dial {
+      .v-btn--fab:not(.primary):not(.red) .v-icon {
+        color: $zidan-text-muted-dark !important;
+      }
+
+      .v-btn--fab:not(.primary):not(.red):hover .v-icon {
+        color: $zidan-primary-dark !important;
+      }
+    }
+
+    .v-card,
+    .v-menu__content,
+    .v-dialog {
+      background-color: $zidan-surface-dark !important;
+      border-color: $zidan-border-dark !important;
+    }
+
+    .v-input__slot,
+    .v-text-field--outlined fieldset {
+      border-color: $zidan-border-dark !important;
+    }
+  }
+
+  .zidan-action-icon {
+    color: #999 !important;
+
+    &.is-active {
+      color: $zidan-primary !important;
+    }
+  }
+
+  @at-root .theme--dark.zidan-app .zidan-action-icon {
+    color: $zidan-text-muted-dark !important;
+
+    &.is-active {
+      color: $zidan-primary-dark !important;
+    }
+  }
+}
