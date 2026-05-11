@@ -30,7 +30,8 @@
             vue-scroll(:ops='scrollStyle')
               v-treeview.page-selector-tree(
                 :key='`pageTree-` + treeViewCacheId'
-                :active.sync='currentNode'
+                :active='currentNode'
+                @update:active='handleActiveUpdate'
                 :open.sync='openNodes'
                 :items='tree'
                 :load-children='fetchFolders'
@@ -68,7 +69,8 @@
               depressed
               color='#3248F2'
               dark
-              :disabled='!compiledNewFolderName'
+              :disabled='!compiledNewFolderName || newFolderLoading'
+              :loading='newFolderLoading'
               @click='addVirtualFolder'
               ) 新建
         v-flex.page-selector-pages(v-if='!foldersOnly', :class='pagesPaneFlex')
@@ -199,6 +201,9 @@ export default {
       currentPage: null,
       currentNode: [0],
       openNodes: [0],
+      loadedFolderIds: [],
+      loadingFolderIds: [],
+      newFolderLoading: false,
       tree: [
         {
           id: 0,
@@ -317,33 +322,21 @@ export default {
       }
     },
     currentNode (newValue, oldValue) {
-      if (newValue.length < 1) { // force a selection
-        this.$nextTick(() => {
-          this.currentNode = oldValue
-        })
-      } else {
-        const current = this.getCurrentFolderById(newValue[0])
-
-        if (!this.mustExist && this.currentPage) {
-          this.currentPage = null
-        }
-
-        if (this.openNodes.indexOf(newValue[0]) < 0) { // auto open and load children
-          if (current && current.parent !== undefined) {
-            if (this.openNodes.indexOf(current.parent) < 0) {
-              this.$nextTick(() => {
-                this.openNodes.push(current.parent)
-              })
-            }
-          }
-          this.$nextTick(() => {
-            this.openNodes.push(newValue[0])
-          })
-        }
-
-        this.currentFolderPath = _.get(current, 'path', '')
-        this.updateCurrentPath()
+      if (newValue.length < 1) {
+        return
       }
+      const current = this.getCurrentFolderById(newValue[0])
+
+      if (!this.mustExist && this.currentPage) {
+        this.currentPage = null
+      }
+
+      if (current && current.parent !== undefined && this.openNodes.indexOf(current.parent) < 0) {
+        this.openNodes = _.uniq([...this.openNodes, current.parent])
+      }
+
+      this.currentFolderPath = _.get(current, 'path', '')
+      this.updateCurrentPath()
     },
     currentPage (newValue, oldValue) {
       if (!_.isEmpty(newValue)) {
@@ -370,12 +363,20 @@ export default {
         this.currentPage = null
         this.pages = []
         this.all = []
+        this.loadedFolderIds = []
+        this.loadingFolderIds = []
         this.treeViewCacheId += 1
         this.updateCurrentPath()
       })
     }
   },
   methods: {
+    handleActiveUpdate (value) {
+      if (!value || value.length < 1 || _.isEqual(value, this.currentNode)) {
+        return
+      }
+      this.currentNode = value
+    },
     close() {
       this.isShown = false
     },
@@ -436,12 +437,28 @@ export default {
       }
       return _.find(this.all, ['id', id]) || this.tree[0]
     },
+    getTreeFolderById (id, nodes = this.tree) {
+      for (const node of nodes) {
+        if (node.id === id) {
+          return node
+        }
+        if (node.children) {
+          const child = this.getTreeFolderById(id, node.children)
+          if (child) {
+            return child
+          }
+        }
+      }
+      return null
+    },
     async addVirtualFolder () {
       const folderSlug = this.compiledNewFolderName
-      if (!folderSlug) { return }
+      if (!folderSlug || this.newFolderLoading) { return }
       const folderTitle = _.trim(this.newFolderTitle) || folderSlug
 
-      const parent = this.getCurrentFolderById(_.head(this.currentNode) || 0)
+      const currentNodeId = _.head(this.currentNode) || 0
+      const parent = this.getCurrentFolderById(currentNodeId)
+      const parentTreeNode = this.getTreeFolderById(currentNodeId) || parent
       const parentId = _.get(parent, 'id', 0)
       const parentPath = _.get(parent, 'path', '')
       const folderPath = _.compact([parentPath, folderSlug]).join('/')
@@ -465,19 +482,26 @@ export default {
         children: []
       }
       this.virtualFolderId -= 1
-      await this.saveFolderMeta(folderPath, folderTitle)
+      this.newFolderLoading = true
+      try {
+        await this.saveFolderMeta(folderPath, folderTitle)
 
-      if (!parent.children) {
-        this.$set(parent, 'children', [])
+        if (!parentTreeNode.children) {
+          this.$set(parentTreeNode, 'children', [])
+        }
+        parentTreeNode.children = _.sortBy(_.unionBy(parentTreeNode.children, [newFolder], 'id'), ['title', 'path'])
+        this.all = _.unionBy(this.all, [newFolder], 'id')
+        this.loadedFolderIds.push(newFolder.id)
+        if (this.openNodes.indexOf(parentId) < 0) {
+          this.openNodes = _.uniq([...this.openNodes, parentId])
+        }
+        this.currentNode = [newFolder.id]
+        this.treeViewCacheId += 1
+        this.newFolderTitle = ''
+        this.newFolderName = ''
+      } finally {
+        this.newFolderLoading = false
       }
-      parent.children.push(newFolder)
-      this.all = _.unionBy(this.all, [newFolder], 'id')
-      if (this.openNodes.indexOf(parentId) < 0) {
-        this.openNodes.push(parentId)
-      }
-      this.currentNode = [newFolder.id]
-      this.newFolderTitle = ''
-      this.newFolderName = ''
     },
     async saveFolderMeta (path, title) {
       if (!path || !title) { return }
@@ -492,48 +516,60 @@ export default {
         })
       } catch (err) {
         this.$store.commit('pushGraphError', err)
+        throw err
       }
     },
     async fetchFolders (item) {
-      if (item.virtual) {
+      if (!item) {
         return
       }
+      const skipReason = item.virtual ? 'virtual' : (this.loadedFolderIds.indexOf(item.id) >= 0 ? 'loaded' : (this.loadingFolderIds.indexOf(item.id) >= 0 ? 'loading' : ''))
+      if (skipReason) {
+        return
+      }
+      this.loadingFolderIds.push(item.id)
       this.searchLoading = true
-      const resp = await this.$apollo.query({
-        query: gql`
-          query ($parent: Int!, $mode: PageTreeMode!, $locale: String!) {
-            pages {
-              tree(parent: $parent, mode: $mode, locale: $locale) {
-                id
-                path
-                title
-                isFolder
-                pageId
-                parent
+      try {
+        const resp = await this.$apollo.query({
+          query: gql`
+            query ($parent: Int!, $mode: PageTreeMode!, $locale: String!) {
+              pages {
+                tree(parent: $parent, mode: $mode, locale: $locale) {
+                  id
+                  path
+                  title
+                  isFolder
+                  pageId
+                  parent
+                }
               }
             }
+          `,
+          fetchPolicy: 'network-only',
+          variables: {
+            parent: item.id,
+            mode: 'ALL',
+            locale: this.currentLocale
           }
-        `,
-        fetchPolicy: 'network-only',
-        variables: {
-          parent: item.id,
-          mode: 'ALL',
-          locale: this.currentLocale
+        })
+        const items = _.get(resp, 'data.pages.tree', [])
+        const virtualFolders = _.filter(_.get(item, 'children', []), 'virtual')
+        const itemFolders = _.unionBy(_.filter(items, ['isFolder', true]).map(f => ({...f, children: []})), virtualFolders, 'path')
+        const itemPages = _.filter(items, i => i.pageId > 0)
+        if (itemFolders.length > 0) {
+          item.children = itemFolders
+        } else {
+          item.children = undefined
         }
-      })
-      const items = _.get(resp, 'data.pages.tree', [])
-      const virtualFolders = _.filter(_.get(item, 'children', []), 'virtual')
-      const itemFolders = _.unionBy(_.filter(items, ['isFolder', true]).map(f => ({...f, children: []})), virtualFolders, 'path')
-      const itemPages = _.filter(items, i => i.pageId > 0)
-      if (itemFolders.length > 0) {
-        item.children = itemFolders
-      } else {
-        item.children = undefined
+        this.pages = _.unionBy(this.pages, itemPages, 'id')
+        this.all = _.unionBy(this.all, items, virtualFolders, 'id')
+        this.loadedFolderIds.push(item.id)
+      } catch (err) {
+        this.$store.commit('pushGraphError', err)
+      } finally {
+        this.loadingFolderIds = this.loadingFolderIds.filter(id => id !== item.id)
+        this.searchLoading = this.loadingFolderIds.length > 0
       }
-      this.pages = _.unionBy(this.pages, itemPages, 'id')
-      this.all = _.unionBy(this.all, items, virtualFolders, 'id')
-
-      this.searchLoading = false
     }
   }
 }
