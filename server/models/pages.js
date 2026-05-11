@@ -332,15 +332,21 @@ module.exports = class Page extends Model {
     }
 
     // -> Render page to HTML
-    await WIKI.models.pages.renderPage(page)
+    if (!opts.skipRender) {
+      await WIKI.models.pages.renderPage(page)
+    }
 
     // -> Rebuild page tree
-    await WIKI.models.pages.rebuildTree()
+    if (!opts.skipTree) {
+      await WIKI.models.pages.rebuildTree()
+    }
 
     // -> Add to Search Index
-    const pageContents = await WIKI.models.pages.query().findById(page.id).select('render')
-    page.safeContent = WIKI.models.pages.cleanHTML(pageContents.render)
-    await WIKI.data.searchEngine.created(page)
+    if (!opts.skipSearch) {
+      const pageContents = await WIKI.models.pages.query().findById(page.id).select('render')
+      page.safeContent = WIKI.models.pages.cleanHTML(pageContents.render)
+      await WIKI.data.searchEngine.created(page)
+    }
 
     // -> Add to Storage
     if (!opts.skipStorage) {
@@ -351,11 +357,13 @@ module.exports = class Page extends Model {
     }
 
     // -> Reconnect Links
-    await WIKI.models.pages.reconnectLinks({
-      locale: page.localeCode,
-      path: page.path,
-      mode: 'create'
-    })
+    if (!opts.skipReconnectLinks) {
+      await WIKI.models.pages.reconnectLinks({
+        locale: page.localeCode,
+        path: page.path,
+        mode: 'create'
+      })
+    }
 
     // -> Get latest updatedAt
     page.updatedAt = await WIKI.models.pages.query().findById(page.id).select('updatedAt').then(r => r.updatedAt)

@@ -11,7 +11,7 @@
         .ai-chat-empty(v-if='messages.length < 1') Ask a question about this wiki.
         .ai-chat-message(v-for='(msg, idx) in messages', :key='idx', :class='`ai-chat-message-` + msg.role')
           .ai-chat-bubble
-            div {{ msg.content }}
+            .ai-chat-content(v-html='renderMessage(msg.content)')
             .ai-chat-sources(v-if='msg.sources && msg.sources.length')
               .caption.mt-2 Sources:
               a.caption.mr-2(v-for='(source, sidx) in msg.sources', :key='sidx', :href='`/${source.locale}/${source.path}`', target='_blank') {{ source.title || source.path }}
@@ -51,8 +51,16 @@
 </template>
 
 <script>
+import DOMPurify from 'dompurify'
+import MarkdownIt from 'markdown-it'
 import chatMutation from 'gql/common/common-ai-mutation-chat.gql'
 import statusQuery from 'gql/common/common-ai-query-status.gql'
+
+const md = new MarkdownIt({
+  html: false,
+  breaks: true,
+  linkify: true
+})
 
 export default {
   props: {
@@ -98,6 +106,9 @@ export default {
           this.$refs.messages.scrollTop = this.$refs.messages.scrollHeight
         }
       })
+    },
+    renderMessage(content) {
+      return DOMPurify.sanitize(md.render(content || ''))
     },
     async send() {
       const question = (this.draft || '').trim()
@@ -200,7 +211,23 @@ export default {
   &-bubble {
     max-width: 82%;
     padding: 10px 12px;
-    white-space: pre-wrap;
+  }
+
+  &-content::v-deep {
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    pre {
+      margin: 8px 0;
+      padding: 8px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    code {
+      white-space: pre-wrap;
+    }
   }
 
   &-sources a {

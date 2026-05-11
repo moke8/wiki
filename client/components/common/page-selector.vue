@@ -26,7 +26,7 @@
             v-spacer
             v-btn(icon, tile, href='https://docs.requarks.io/guide/pages#folders', target='_blank')
               v-icon mdi-help-box
-          .page-selector-scroll(style='height:400px;')
+          .page-selector-scroll(:style='foldersOnly ? `height:300px;` : `height:400px;`')
             vue-scroll(:ops='scrollStyle')
               v-treeview.page-selector-tree(
                 :key='`pageTree-` + treeViewCacheId'
@@ -43,7 +43,7 @@
                 )
                 template(slot='prepend', slot-scope='{ item, open, leaf }')
                   v-icon(size='18') mdi-{{ open ? 'folder-open' : 'folder' }}
-          .page-selector-new-folder(v-if='!mustExist')
+          .page-selector-new-folder(v-if='!mustExist && !selectExistingPageOnly')
             v-text-field(
               dense
               outlined
@@ -71,7 +71,7 @@
               :disabled='!compiledNewFolderName'
               @click='addVirtualFolder'
               ) 新建
-        v-flex.page-selector-pages(:class='pagesPaneFlex')
+        v-flex.page-selector-pages(v-if='!foldersOnly', :class='pagesPaneFlex')
           v-toolbar.page-selector-toolbar(dense, flat)
             .body-2 {{$t('common:pageSelector.pages')}}
           .page-selector-scroll(v-if='currentPages.length > 0', style='height:400px;')
@@ -112,21 +112,31 @@
             label='选择文件夹'
             :value='currentFolderDisplay'
             )
-          v-text-field(
-            ref='pathIpt'
-            dense
-            outlined
-            hide-details='auto'
-            clearable
-            label='文章路径名'
-            hint='不支持 /，输入后会自动转换为 -'
-            persistent-hint
-            v-model='currentSlug'
-            )
-          .page-selector-final-path
-            span 最终路径：
-            code /{{compiledPath}}
-      v-card-chin
+          template(v-if='!foldersOnly')
+            v-text-field(
+              ref='pathIpt'
+              dense
+              outlined
+              hide-details='auto'
+              clearable
+              label='文章路径名'
+              hint='不支持 /，输入后会自动转换为 -'
+              persistent-hint
+              v-model='currentSlug'
+              )
+            .page-selector-final-path
+              span 最终路径：
+              code /{{compiledPath}}
+          template(v-else)
+            .page-selector-folder-actions
+              v-btn(text, @click='close') {{$t('common:actions.cancel')}}
+              v-btn.px-4(color='primary', depressed, @click='open', :disabled='!isValidPath')
+                v-icon(left) mdi-check
+                span {{$t('common:actions.select')}}
+            .page-selector-final-path
+              span 目标目录：
+              code {{currentFolderDisplay}}
+      v-card-chin(v-if='!foldersOnly')
         v-spacer
         v-btn(text, @click='close') {{$t('common:actions.cancel')}}
         v-btn.px-4(color='primary', @click='open', :disabled='!isValidPath')
@@ -167,6 +177,10 @@ export default {
       default: () => {}
     },
     mustExist: {
+      type: Boolean,
+      default: false
+    },
+    foldersOnly: {
       type: Boolean,
       default: false
     }
@@ -224,7 +238,13 @@ export default {
     currentPages () {
       return _.sortBy(_.filter(this.pages, ['parent', _.head(this.currentNode) || 0]), ['title', 'path'])
     },
+    selectExistingPageOnly () {
+      return this.mode === 'select' && !this.foldersOnly
+    },
     folderPaneFlex () {
+      if (this.foldersOnly) {
+        return 'xs12'
+      }
       return this.$vuetify.breakpoint.xsOnly ? 'xs12' : 'xs5'
     },
     pagesPaneFlex () {
@@ -243,17 +263,23 @@ export default {
       return this.currentFolderPath ? `/${this.currentFolderPath}` : '/'
     },
     isValidPath () {
-      const targetPath = this.mustExist ? this.currentPath : this.compiledPath
+      const targetPath = this.foldersOnly ? (this.currentFolderPath || 'home') : ((this.mustExist || this.selectExistingPageOnly) ? this.currentPath : this.compiledPath)
       if (!targetPath) {
         return false
       }
-      if (!this.mustExist && !this.currentSlugCompiled) {
+      if (!this.mustExist && !this.foldersOnly && !this.selectExistingPageOnly && !this.currentSlugCompiled) {
         return false
       }
-      if (this.mustExist && !this.currentPage) {
+      if ((this.mustExist || this.selectExistingPageOnly) && !this.currentPage) {
         return false
       }
       const firstSection = _.head(targetPath.split('/'))
+      if (this.foldersOnly && targetPath === 'home') {
+        return true
+      }
+      if (!firstSection) {
+        return this.foldersOnly
+      }
       if (firstSection.length <= 1) {
         return false
       } else if (localeSegmentRegex.test(firstSection)) {
@@ -355,11 +381,13 @@ export default {
     },
     open() {
       this.updateCurrentPath()
-      const targetPath = this.mustExist ? this.currentPath : this.compiledPath
+      const currentFolder = this.getCurrentFolderById(_.head(this.currentNode) || 0)
+      const targetPath = this.foldersOnly ? this.currentFolderPath : ((this.mustExist || this.selectExistingPageOnly) ? this.currentPath : this.compiledPath)
       const exit = this.openHandler({
         locale: this.currentLocale,
         path: targetPath,
-        id: (this.mustExist && this.currentPage) ? this.currentPage.pageId : 0
+        id: ((this.mustExist || this.selectExistingPageOnly) && this.currentPage) ? this.currentPage.pageId : 0,
+        title: _.get(currentFolder, 'title', '')
       })
       if (exit !== false) {
         this.close()
@@ -374,6 +402,19 @@ export default {
         .replace(/^-|-$/g, '')
     },
     setPathParts (path) {
+      if (this.foldersOnly) {
+        const folderPath = _.trim(String(path || ''), '/')
+        this.currentFolderPath = folderPath === 'home' ? '' : folderPath
+        this.currentSlug = ''
+        const folder = _.find(this.all, item => item.isFolder && item.path === this.currentFolderPath)
+        if (folder) {
+          this.currentNode = [folder.id]
+        } else if (!this.currentFolderPath) {
+          this.currentNode = [0]
+        }
+        this.updateCurrentPath()
+        return
+      }
       const parts = _.compact(String(path || 'new-page').split('/'))
       const folderPath = _.initial(parts).join('/')
       this.currentFolderPath = folderPath
@@ -387,7 +428,7 @@ export default {
       this.updateCurrentPath()
     },
     updateCurrentPath () {
-      this.currentPath = this.compiledPath
+      this.currentPath = this.foldersOnly ? this.currentFolderPath : this.compiledPath
     },
     getCurrentFolderById (id) {
       if (id === 0) {
@@ -567,7 +608,8 @@ export default {
   }
 
   .page-selector-new-folder {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto;
     gap: 8px;
     padding: 12px;
     border-top: 1px solid #ECEEF1;
@@ -575,6 +617,7 @@ export default {
 
     .v-btn {
       min-width: 64px;
+      height: 40px;
       box-shadow: none !important;
     }
   }
@@ -608,7 +651,7 @@ export default {
   .page-selector-path-actions {
     align-items: flex-start;
     gap: 12px;
-    padding: 14px !important;
+    padding: 10px 14px !important;
     background-color: #F6F7F9 !important;
     border-bottom: 1px solid #ECEEF1;
   }
@@ -627,7 +670,7 @@ export default {
     flex: 1;
     display: grid;
     grid-template-columns: minmax(180px, .9fr) minmax(220px, 1.1fr);
-    gap: 10px 12px;
+    gap: 8px 12px;
 
     .v-input__slot {
       background-color: #FFF !important;
@@ -655,6 +698,16 @@ export default {
       border: 1px solid #ECEEF1;
       border-radius: 4px;
       box-shadow: none;
+    }
+  }
+
+  .page-selector-folder-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    .v-btn {
+      height: 40px;
     }
   }
 

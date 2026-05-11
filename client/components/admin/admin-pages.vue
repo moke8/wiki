@@ -13,7 +13,10 @@
           //- v-btn.animated.fadeInDown.mx-3(color='primary', outlined, @click='recyclebin', disabled)
           //-   v-icon(left) mdi-delete-outline
           //-   span Recycle Bin
-          v-btn.animated.fadeInDown(color='primary', depressed, large, to='pages/visualize')
+          v-btn.animated.fadeInDown.wait-p1s.ml-3(color='primary', depressed, large, to='/pages/import')
+            v-icon(left) mdi-archive-arrow-up-outline
+            span Import
+          v-btn.animated.fadeInDown.ml-3(color='primary', outlined, large, to='/pages/visualize')
             v-icon(left) mdi-graph
             span Visualize
         v-card.mt-3.animated.fadeInUp
