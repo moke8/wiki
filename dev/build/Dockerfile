@@ -17,11 +17,11 @@ COPY ./.babelrc ./.babelrc
 COPY ./.eslintignore ./.eslintignore
 COPY ./.eslintrc.yml ./.eslintrc.yml
 
-RUN yarn cache clean
-RUN yarn --frozen-lockfile --non-interactive
+# RUN yarn cache clean
+RUN yarn --non-interactive --ignore-scripts
 RUN yarn build
-RUN rm -rf /wiki/node_modules
-RUN yarn --production --frozen-lockfile --non-interactive
+# RUN rm -rf /wiki/node_modules
+RUN yarn --production --non-interactive --ignore-scripts
 RUN yarn patch-package
 
 # ===============
