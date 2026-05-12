@@ -34,6 +34,7 @@
                 v-if='item.pageId > 0'
                 :href='`/` + item.locale + `/` + item.path'
                 :class='{ "is-active": path === item.path }'
+                @click='navigateArticle($event, item)'
                 v-on='on'
               ) {{ item.title }}
               span.zidan-dir-item-label(v-else, v-on='on') {{ item.title }}
@@ -184,20 +185,27 @@ export default {
         this.setNodeChildren(this.tree[0], rootChildren)
         this.loadedCache.push(0)
 
-        const resp = await this.$apollo.query({
-          query: treeContextQuery,
-          fetchPolicy: 'cache-first',
-          variables: {
-            path: this.path,
-            locale: this.locale
-          }
-        })
-        const contextItems = (((resp || {}).data || {}).pages || {}).tree || []
-        const currentItem = contextItems.find(item => item.pageId === this.pageId) || contextItems.find(item => item.path === this.path)
-        if (!currentItem) {
-          return
+        await this.updateActivePage({ expandAncestors: true })
+      } finally {
+        this.$store.commit(`loadingStop`, 'browse-load')
+      }
+    },
+    async updateActivePage ({ expandAncestors = false } = {}) {
+      const resp = await this.$apollo.query({
+        query: treeContextQuery,
+        fetchPolicy: 'cache-first',
+        variables: {
+          path: this.path,
+          locale: this.locale
         }
+      })
+      const contextItems = (((resp || {}).data || {}).pages || {}).tree || []
+      const currentItem = contextItems.find(item => item.pageId === this.pageId) || contextItems.find(item => item.path === this.path)
+      if (!currentItem) {
+        return
+      }
 
+      if (expandAncestors) {
         const ancestors = this.buildAncestorChain(contextItems, currentItem)
         for (const ancestor of ancestors) {
           const node = this.findNodeById(ancestor.id)
@@ -206,17 +214,26 @@ export default {
           }
           const children = await this.queryTreeChildren(ancestor.id)
           this.setNodeChildren(node, children)
-          this.loadedCache.push(ancestor.id)
-          this.openNodes.push(ancestor.id)
+          if (this.loadedCache.indexOf(ancestor.id) < 0) {
+            this.loadedCache.push(ancestor.id)
+          }
+          if (this.openNodes.indexOf(ancestor.id) < 0) {
+            this.openNodes.push(ancestor.id)
+          }
         }
-
-        this.activeNodes = [currentItem.id]
-      } finally {
-        this.$store.commit(`loadingStop`, 'browse-load')
       }
+
+      this.activeNodes = [currentItem.id]
+    },
+    navigateArticle (event, item) {
+      this.$helpers.navigateArticle(`/${item.locale}/${item.path}`, this, event, { source: 'nav-sidebar' })
     },
     goHome () {
-      window.location.assign(siteLangs.length > 0 ? `/${this.locale}/home` : '/')
+      if (siteLangs.length > 0) {
+        this.$helpers.navigateArticle(`/${this.locale}/home`, this, null, { source: 'nav-sidebar-home' })
+      } else {
+        window.location.assign('/')
+      }
     }
   },
   mounted () {
@@ -224,7 +241,10 @@ export default {
   },
   watch: {
     path () {
-      this.loadAbsoluteTree()
+      this.updateActivePage()
+    },
+    pageId () {
+      this.updateActivePage()
     },
     locale () {
       this.loadAbsoluteTree()

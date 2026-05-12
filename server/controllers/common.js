@@ -11,6 +11,177 @@ const { v4: uuid } = require('uuid')
 
 const tmplCreateRegex = /^[0-9]+(,[0-9]+)?$/
 
+async function buildPageViewPayload (req, res, pageArgs, rawPath) {
+  req.i18n.changeLanguage(pageArgs.locale)
+
+  const page = await WIKI.models.pages.getPage({
+    path: pageArgs.path,
+    locale: pageArgs.locale,
+    userId: req.user.id,
+    isPrivate: false
+  })
+  pageArgs.tags = _.get(page, 'tags', [])
+
+  const effectivePermissions = WIKI.auth.getEffectivePermissions(req, pageArgs)
+
+  if (!effectivePermissions.pages.read) {
+    if (req.user.id === 2) {
+      res.cookie('loginRedirect', rawPath || req.path, {
+        maxAge: 15 * 60 * 1000
+      })
+    }
+    if (pageArgs.path === 'home' && req.user.id === 2) {
+      return {
+        kind: 'redirect',
+        status: 200,
+        location: '/login'
+      }
+    }
+    return {
+      kind: 'unauthorized',
+      status: 403,
+      action: 'view',
+      meta: { title: 'Unauthorized' }
+    }
+  }
+
+  _.set(res, 'locals.siteConfig.lang', pageArgs.locale)
+  _.set(res, 'locals.siteConfig.rtl', req.i18n.dir() === 'rtl')
+
+  if (!page) {
+    if (pageArgs.path === 'home') {
+      return {
+        kind: 'welcome',
+        status: 200,
+        locale: pageArgs.locale,
+        meta: { title: 'Welcome' }
+      }
+    }
+    return {
+      kind: effectivePermissions.pages.write ? 'new' : 'notfound',
+      status: 404,
+      path: pageArgs.path,
+      locale: pageArgs.locale,
+      action: 'view',
+      canCreate: effectivePermissions.pages.write,
+      meta: { title: 'Page Not Found' }
+    }
+  }
+
+  let pageIsPublished = page.isPublished
+  if (pageIsPublished && !_.isEmpty(page.publishStartDate)) {
+    pageIsPublished = moment(page.publishStartDate).isSameOrBefore()
+  }
+  if (pageIsPublished && !_.isEmpty(page.publishEndDate)) {
+    pageIsPublished = moment(page.publishEndDate).isSameOrAfter()
+  }
+  if (!pageIsPublished && !effectivePermissions.pages.write) {
+    return {
+      kind: 'unauthorized',
+      status: 403,
+      action: 'view',
+      meta: { title: 'Unauthorized' }
+    }
+  }
+
+  let sdi = 1
+  const sidebar = (await WIKI.models.navigation.getTree({ cache: true, locale: pageArgs.locale, groups: req.user.groups })).map(n => ({
+    i: `sdi-${sdi++}`,
+    k: n.kind,
+    l: n.label,
+    c: n.icon,
+    y: n.targetType,
+    t: n.target
+  }))
+
+  const injectCode = {
+    css: WIKI.config.theming.injectCSS,
+    head: WIKI.config.theming.injectHead,
+    body: WIKI.config.theming.injectBody
+  }
+
+  page.extra = page.extra || { css: '', js: '' }
+
+  if (!_.isEmpty(page.extra.css)) {
+    injectCode.css = `${injectCode.css}\n${page.extra.css}`
+  }
+
+  if (!_.isEmpty(page.extra.js)) {
+    injectCode.body = `${injectCode.body}\n${page.extra.js}`
+  }
+
+  let pageToc = page.toc
+  if (!_.isString(pageToc)) {
+    pageToc = JSON.stringify(pageToc)
+  }
+
+  const commentTmpl = {
+    codeTemplate: WIKI.data.commentProvider.codeTemplate,
+    head: WIKI.data.commentProvider.head,
+    body: WIKI.data.commentProvider.body,
+    main: WIKI.data.commentProvider.main
+  }
+  if (WIKI.config.features.featurePageComments && WIKI.data.commentProvider.codeTemplate) {
+    [
+      { key: 'pageUrl', value: `${WIKI.config.host}/i/${page.id}` },
+      { key: 'pageId', value: page.id }
+    ].forEach((cfg) => {
+      commentTmpl.head = _.replace(commentTmpl.head, new RegExp(`{{${cfg.key}}}`, 'g'), cfg.value)
+      commentTmpl.body = _.replace(commentTmpl.body, new RegExp(`{{${cfg.key}}}`, 'g'), cfg.value)
+      commentTmpl.main = _.replace(commentTmpl.main, new RegExp(`{{${cfg.key}}}`, 'g'), cfg.value)
+    })
+  }
+
+  let pageFilename = WIKI.config.lang.namespacing ? `${pageArgs.locale}/${page.path}` : page.path
+  pageFilename += page.contentType === 'markdown' ? '.md' : '.html'
+
+  return {
+    kind: 'page',
+    status: 200,
+    page: {
+      id: page.id,
+      localeCode: page.localeCode,
+      path: page.path,
+      title: page.title,
+      description: page.description,
+      tags: page.tags,
+      createdAt: page.createdAt,
+      updatedAt: page.updatedAt,
+      authorName: page.authorName,
+      authorId: page.authorId,
+      editorKey: page.editorKey,
+      isPublished: page.isPublished,
+      toc: pageToc,
+      render: page.render,
+      contentType: page.contentType
+    },
+    sidebar,
+    injectCode,
+    comments: commentTmpl,
+    effectivePermissions,
+    pageFilename,
+    config: {
+      navMode: WIKI.config.nav.mode,
+      commentsEnabled: WIKI.config.features.featurePageComments,
+      editShortcuts: WIKI.config.editShortcuts
+    },
+    siteConfig: {
+      lang: pageArgs.locale,
+      rtl: req.i18n.dir() === 'rtl'
+    },
+    meta: {
+      title: page.title,
+      description: page.description
+    },
+    encoded: {
+      toc: Buffer.from(pageToc).toString('base64'),
+      sidebar: Buffer.from(JSON.stringify(sidebar)).toString('base64'),
+      effectivePermissions: Buffer.from(JSON.stringify(effectivePermissions)).toString('base64'),
+      editShortcuts: Buffer.from(JSON.stringify(WIKI.config.editShortcuts)).toString('base64')
+    }
+  }
+}
+
 /**
  * Robots.txt
  */
@@ -410,6 +581,35 @@ router.get('/_userav/:uid', async (req, res, next) => {
   }
 
   return res.sendStatus(404)
+})
+
+/**
+ * SPA Page View Payload
+ */
+router.get('/_page/*', async (req, res, next) => {
+  try {
+    const rawPath = req.path.replace(/^\/_page/, '') || '/'
+    const stripExt = _.some(WIKI.config.pageExtensions, ext => _.endsWith(rawPath, `.${ext}`))
+    const pageArgs = pageHelper.parsePath(rawPath, { stripExt })
+    const isPage = (stripExt || pageArgs.path.indexOf('.') === -1)
+
+    if (!isPage) {
+      return res.status(400).json({ kind: 'asset', message: 'Not a page path.' })
+    }
+
+    if (WIKI.config.lang.namespacing && !pageArgs.explicitLocale) {
+      const query = !_.isEmpty(req.query) ? `?${qs.stringify(req.query)}` : ''
+      return res.json({
+        kind: 'redirect',
+        location: `/${pageArgs.locale}/${pageArgs.path}${query}`
+      })
+    }
+
+    const payload = await buildPageViewPayload(req, res, pageArgs, rawPath)
+    res.status(payload.status || 200).json(payload)
+  } catch (err) {
+    next(err)
+  }
 })
 
 /**

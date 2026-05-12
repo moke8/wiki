@@ -2,7 +2,7 @@
   v-app.zidan-app(v-scroll='upBtnScroll', :dark='$vuetify.theme.dark', :class='$vuetify.rtl ? `is-rtl` : `is-ltr`')
     nav-header(v-if='!printView')
     v-navigation-drawer.zidan-nav-drawer(
-      v-if='navMode !== `NONE` && !printView'
+      v-if='currentPage.navMode !== `NONE` && !printView'
       app
       clipped
       mobile-breakpoint='960'
@@ -11,7 +11,7 @@
       :right='$vuetify.rtl'
       width='260'
       )
-      nav-sidebar(:items='sidebarDecoded', :nav-mode='navMode')
+      nav-sidebar(:items='sidebarDecoded', :nav-mode='currentPage.navMode')
 
     v-fab-transition(v-if='navMode !== `NONE`')
       v-btn(
@@ -30,7 +30,7 @@
         v-icon mdi-menu
 
     v-main.zidan-main(ref='content')
-      template(v-if='path !== `home`')
+      template(v-if='currentPath !== `home`')
         v-toolbar.zidan-breadcrumb-bar(
           :color='$vuetify.theme.dark ? `grey darken-4-d3` : `white`'
           flat
@@ -44,7 +44,7 @@
             template(slot='item', slot-scope='props')
               v-icon(v-if='props.item.path === "/"', small) mdi-home
               span.breadcrumbs-nav-item(v-else) {{ props.item.name }}
-          template(v-if='!isPublished')
+          template(v-if='!currentIsPublished')
             v-spacer
             .caption.red--text {{ $t('common:page.unpublished') }}
             status-indicator.ml-3(negative, pulse)
@@ -62,8 +62,8 @@
             //- Page Header (inside content col, aligned with content)
             .zidan-page-header
               .zidan-page-header-content
-                .zidan-page-title {{ title }}
-                .zidan-page-desc(v-if='description') {{ description }}
+                .zidan-page-title {{ currentTitle }}
+                .zidan-page-desc(v-if='currentDescription') {{ currentDescription }}
               .page-edit-shortcuts(v-if='editShortcutsObj.editMenuBar')
                 v-btn(
                   v-if='editShortcutsObj.editMenuBtn'
@@ -133,12 +133,14 @@
                         v-icon(size='20') mdi-trash-can-outline
                     span {{ $t('common:header.delete') }}
               span {{ $t('common:page.editPage') }}
-            v-alert.mb-5(v-if='!isPublished', color='red', outlined, icon='mdi-minus-circle', dense)
+            v-alert.mb-5(v-if='!currentIsPublished', color='red', outlined, icon='mdi-minus-circle', dense)
               .caption {{ $t('common:page.unpublishedWarning') }}
-            .contents(ref='container')
+            .contents(v-if='hasDynamicContent', ref='container', v-html='pageHtml')
+            .contents(v-else, ref='container')
               slot(name='contents')
-            .comments-container#discussion(v-if='commentsEnabled && commentsPerms.read && !printView')
-              .comments-main
+            .comments-container#discussion(v-if='currentCommentsEnabled && commentsPerms.read && !printView')
+              .comments-main(v-if='hasDynamicContent', v-html='pageCommentsHtml')
+              .comments-main(v-else)
                 slot(name='comments')
           //- Right Sidebar (TOC + meta)
           v-flex.page-col-sd.zidan-toc-col.zidan-right-sidebar(
@@ -170,7 +172,7 @@
                           @click.prevent='scrollToToc(tocSubItem.anchor)'
                           ) {{ tocSubItem.title }}
               //- Tags
-              .zidan-rs-section(v-if='tags.length > 0')
+              .zidan-rs-section(v-if='currentTags.length > 0')
                 .zidan-rs-label {{ $t('common:page.tags') }}
                 .zidan-rs-tags
                   v-chip.mr-1.mb-1(
@@ -178,15 +180,15 @@
                     x-small
                     outlined
                     color='primary'
-                    v-for='(tag, idx) in tags'
+                    v-for='(tag, idx) in currentTags'
                     :href='`/t/` + tag.tag'
                     :key='`tag-` + tag.tag'
                     ) {{ tag.title }}
               //- Last edited
               .zidan-rs-section
                 .zidan-rs-label {{ $t('common:page.lastEditedBy') }}
-                .zidan-rs-meta {{ authorName }}
-                .zidan-rs-meta-sub {{ updatedAt | moment('calendar') }}
+                .zidan-rs-meta {{ currentAuthorName }}
+                .zidan-rs-meta-sub {{ currentUpdatedAt | moment('calendar') }}
               //- Actions
               .zidan-rs-section.zidan-rs-actions
                 v-btn(icon, small, @click='print', :aria-label='$t(`common:page.printFormat`)')
@@ -195,15 +197,16 @@
                   template(v-slot:activator='{ on }')
                     v-btn(icon, small, v-on='on', :aria-label='$t(`common:page.share`)')
                       v-icon.zidan-action-icon(size='18') mdi-share-variant
-                  social-sharing(:url='pageUrl', :title='title', :description='description')
+                  social-sharing(:url='pageUrl', :title='currentTitle', :description='currentDescription')
     nav-footer.zidan-page-footer(v-if='!printView')
     notify
     search-results
     ai-chat(
       v-if='!printView'
-      :page-id='pageId'
-      :locale='locale'
-      :path='path'
+      :key='`ai-chat-` + currentId'
+      :page-id='currentId'
+      :locale='currentLocale'
+      :path='currentPath'
       color='primary'
       :small='true'
       :bottom-offset='24'
@@ -329,7 +332,14 @@ export default {
       },
       winWidth: 0,
       activeTocAnchor: '',
-      breadcrumbItems: []
+      breadcrumbItems: [],
+      currentPage: this.getInitialPageData(),
+      pageHtml: '',
+      pageCommentsHtml: '',
+      hasDynamicContent: false,
+      resizeHandler: null,
+      articleNavigateHandler: null,
+      popstateHandler: null
     }
   },
   computed: {
@@ -341,12 +351,12 @@ export default {
       if (this.breadcrumbItems.length > 0) {
         return this.breadcrumbItems
       }
-      const parts = this.path.split('/').filter(value => value)
+      const parts = this.currentPath.split('/').filter(value => value)
       return [{ path: '/', name: 'Home' }].concat(
         _.reduce(parts, (result, value, idx) => {
           result.push({
-            path: _.get(_.last(result), 'path', this.locales.length > 0 ? `/${this.locale}` : '') + `/${value}`,
-            name: idx === parts.length - 1 ? this.title : value
+            path: _.get(_.last(result), 'path', this.locales.length > 0 ? `/${this.currentLocale}` : '') + `/${value}`,
+            name: idx === parts.length - 1 ? this.currentTitle : value
           })
           return result
         }, []))
@@ -359,11 +369,22 @@ export default {
         return this.$vuetify.rtl ? `right: 65px;` : `left: 65px;`
       }
     },
+    currentId () { return this.currentPage.pageId },
+    currentLocale () { return this.currentPage.locale },
+    currentPath () { return this.currentPage.path },
+    currentTitle () { return this.currentPage.title },
+    currentDescription () { return this.currentPage.description },
+    currentTags () { return this.currentPage.tags || [] },
+    currentAuthorName () { return this.currentPage.authorName },
+    currentUpdatedAt () { return this.currentPage.updatedAt },
+    currentIsPublished () { return this.currentPage.isPublished },
+    currentCommentsEnabled () { return this.currentPage.commentsEnabled },
+    currentFilename () { return this.currentPage.filename },
     sidebarDecoded () {
-      return JSON.parse(Buffer.from(this.sidebar, 'base64').toString())
+      return this.decodeBase64Json(this.currentPage.sidebar, [])
     },
     tocDecoded () {
-      return JSON.parse(Buffer.from(this.toc, 'base64').toString())
+      return this.decodeBase64Json(this.currentPage.toc, [])
     },
     tocPosition: get('site/tocPosition'),
     hasAdminPermission: get('page/effectivePermissions@system.manage'),
@@ -379,76 +400,210 @@ export default {
     printView: sync('site/printView'),
     editMenuExternalUrl () {
       if (this.editShortcutsObj.editMenuBar && this.editShortcutsObj.editMenuExternalBtn) {
-        return this.editShortcutsObj.editMenuExternalUrl.replace('{filename}', this.filename)
+        return this.editShortcutsObj.editMenuExternalUrl.replace('{filename}', this.currentFilename)
       } else {
         return ''
       }
     }
   },
   created() {
-    this.$store.set('page/authorId', this.authorId)
-    this.$store.set('page/authorName', this.authorName)
-    this.$store.set('page/createdAt', this.createdAt)
-    this.$store.set('page/description', this.description)
-    this.$store.set('page/isPublished', this.isPublished)
-    this.$store.set('page/id', this.pageId)
-    this.$store.set('page/locale', this.locale)
-    this.$store.set('page/path', this.path)
-    this.$store.set('page/tags', this.tags)
-    this.$store.set('page/title', this.title)
-    this.$store.set('page/editor', this.editor)
-    this.$store.set('page/updatedAt', this.updatedAt)
-    if (this.effectivePermissions) {
-      this.$store.set('page/effectivePermissions', JSON.parse(Buffer.from(this.effectivePermissions, 'base64').toString()))
-    }
-    if (this.editShortcuts) {
-      this.$store.set('page/editShortcuts', JSON.parse(Buffer.from(this.editShortcuts, 'base64').toString()))
-    }
-    this.$store.set('page/mode', 'view')
+    this.syncPageStore(this.currentPage)
   },
   mounted () {
     this.handleSideNavVisibility()
     this.loadBreadcrumbs()
-    window.addEventListener('resize', _.debounce(() => {
+    this.resizeHandler = _.debounce(() => {
       this.handleSideNavVisibility()
-    }, 500))
-    Prism.highlightAllUnder(this.$refs.container)
-    mermaid.mermaidAPI.initialize({
-      startOnLoad: true,
-      theme: this.$vuetify.theme.dark ? `dark` : `default`
-    })
-    if (window.location.hash && window.location.hash.length > 1) {
-      if (document.readyState === 'complete') {
-        this.$nextTick(() => {
-          this.$vuetify.goTo(decodeURIComponent(window.location.hash), this.scrollOpts)
-        })
-      } else {
-        window.addEventListener('load', () => {
-          this.$vuetify.goTo(decodeURIComponent(window.location.hash), this.scrollOpts)
-        })
-      }
+    }, 500)
+    window.addEventListener('resize', this.resizeHandler)
+    this.articleNavigateHandler = ev => this.navigateArticle(ev.detail)
+    this.popstateHandler = () => this.navigateArticleFromLocation(true)
+    window.addEventListener('wiki:navigate-article', this.articleNavigateHandler)
+    window.addEventListener('popstate', this.popstateHandler)
+    this.afterPageContentUpdated()
+  },
+  beforeDestroy () {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler)
     }
-    this.$nextTick(() => {
-      this.$refs.container.querySelectorAll(`a[href^="#"], a[href^="${window.location.href.replace(window.location.hash, '')}#"]`).forEach(el => {
-        el.onclick = ev => {
-          ev.preventDefault()
-          ev.stopPropagation()
-          this.$vuetify.goTo(decodeURIComponent(ev.currentTarget.hash), this.scrollOpts)
-        }
-      })
-      if (window.location.hash) {
-        this.activeTocAnchor = decodeURIComponent(window.location.hash)
-      } else if (this.tocDecoded.length) {
-        this.activeTocAnchor = this.tocDecoded[0].anchor
-      }
-      this.updateActiveTocAnchor()
-      window.boot.notify('page-ready')
-    })
+    if (this.articleNavigateHandler) {
+      window.removeEventListener('wiki:navigate-article', this.articleNavigateHandler)
+    }
+    if (this.popstateHandler) {
+      window.removeEventListener('popstate', this.popstateHandler)
+    }
   },
   methods: {
+    getInitialPageData () {
+      return {
+        pageId: this.pageId,
+        locale: this.locale,
+        path: this.path,
+        title: this.title,
+        description: this.description,
+        createdAt: this.createdAt,
+        updatedAt: this.updatedAt,
+        tags: this.tags,
+        authorName: this.authorName,
+        authorId: this.authorId,
+        editor: this.editor,
+        isPublished: this.isPublished,
+        toc: this.toc,
+        sidebar: this.sidebar,
+        navMode: this.navMode,
+        commentsEnabled: this.commentsEnabled,
+        commentsExternal: this.commentsExternal,
+        effectivePermissions: this.effectivePermissions,
+        editShortcuts: this.editShortcuts,
+        filename: this.filename
+      }
+    },
+    decodeBase64Json (value, fallback) {
+      if (!value) { return fallback }
+      try {
+        return JSON.parse(Buffer.from(value, 'base64').toString())
+      } catch (err) {
+        return fallback
+      }
+    },
+    syncPageStore (page) {
+      this.$store.set('page/authorId', page.authorId)
+      this.$store.set('page/authorName', page.authorName)
+      this.$store.set('page/createdAt', page.createdAt)
+      this.$store.set('page/description', page.description)
+      this.$store.set('page/isPublished', page.isPublished)
+      this.$store.set('page/id', page.pageId)
+      this.$store.set('page/locale', page.locale)
+      this.$store.set('page/path', page.path)
+      this.$store.set('page/tags', page.tags || [])
+      this.$store.set('page/title', page.title)
+      this.$store.set('page/editor', page.editor)
+      this.$store.set('page/updatedAt', page.updatedAt)
+      this.$store.set('page/effectivePermissions', this.decodeBase64Json(page.effectivePermissions, {}))
+      this.$store.set('page/editShortcuts', this.decodeBase64Json(page.editShortcuts, {}))
+      this.$store.set('page/mode', 'view')
+    },
+    updatePageMeta (payload) {
+      const title = _.get(payload, 'meta.title', this.currentTitle)
+      const description = _.get(payload, 'meta.description', this.currentDescription) || ''
+      document.title = `${title} | ${this.$store.get('site/title')}`
+      const updateMeta = (selector, attr, value) => {
+        const el = document.querySelector(selector)
+        if (el) { el.setAttribute(attr, value) }
+      }
+      updateMeta('meta[name="description"]', 'content', description)
+      updateMeta('meta[property="og:title"]', 'content', title)
+      updateMeta('meta[property="og:description"]', 'content', description)
+      updateMeta('meta[property="og:url"]', 'content', window.location.href)
+    },
+    applyPagePayload (payload) {
+      const page = payload.page || {}
+      this.currentPage = {
+        pageId: page.id,
+        locale: page.localeCode,
+        path: page.path,
+        title: page.title,
+        description: page.description,
+        createdAt: page.createdAt,
+        updatedAt: page.updatedAt,
+        tags: page.tags || [],
+        authorName: page.authorName,
+        authorId: page.authorId,
+        editor: page.editorKey,
+        isPublished: page.isPublished,
+        toc: _.get(payload, 'encoded.toc', ''),
+        sidebar: _.get(payload, 'encoded.sidebar', ''),
+        navMode: _.get(payload, 'config.navMode', this.currentPage.navMode),
+        commentsEnabled: _.get(payload, 'config.commentsEnabled', false),
+        commentsExternal: _.get(payload, 'comments.codeTemplate', false),
+        effectivePermissions: _.get(payload, 'encoded.effectivePermissions', ''),
+        editShortcuts: _.get(payload, 'encoded.editShortcuts', ''),
+        filename: payload.pageFilename
+      }
+      this.pageHtml = page.render || ''
+      this.pageCommentsHtml = _.get(payload, 'comments.main', '')
+      this.hasDynamicContent = true
+      this.breadcrumbItems = []
+      this.syncPageStore(this.currentPage)
+      this.updatePageMeta(payload)
+      this.loadBreadcrumbs()
+      this.$nextTick(() => this.afterPageContentUpdated())
+    },
+    async navigateArticle (detail = {}) {
+      if (!detail.apiPath) { return }
+      this.$store.commit('loadingStart', 'article-spa')
+      try {
+        const resp = await fetch(detail.apiPath, { credentials: 'same-origin' })
+        const payload = await resp.json()
+        if (payload.kind === 'redirect' && payload.location) {
+          window.location.assign(payload.location)
+          return
+        }
+        if (!resp.ok || payload.kind !== 'page') {
+          window.location.assign(detail.href || `/${detail.locale}/${detail.path}`)
+          return
+        }
+        if (window.history) {
+          window.history[detail.replace ? 'replaceState' : 'pushState']({ wikiArticle: true }, '', detail.href)
+        }
+        this.applyPagePayload(payload)
+        this.$nextTick(() => {
+          if (detail.hash) {
+            this.$vuetify.goTo(decodeURIComponent(detail.hash), this.scrollOpts)
+          } else {
+            this.$vuetify.goTo(0, { duration: 300 })
+          }
+        })
+      } catch (err) {
+        window.location.assign(detail.href || `/${detail.locale}/${detail.path}`)
+      } finally {
+        this.$store.commit('loadingStop', 'article-spa')
+      }
+    },
+    navigateArticleFromLocation (replace = false) {
+      const target = this.$helpers.getArticleTarget(window.location.href)
+      if (target.ok) {
+        this.navigateArticle({ ...target, replace })
+      }
+    },
+    afterPageContentUpdated () {
+      this.$nextTick(() => {
+        if (!this.$refs.container) { return }
+        Prism.highlightAllUnder(this.$refs.container)
+        mermaid.mermaidAPI.initialize({
+          startOnLoad: true,
+          theme: this.$vuetify.theme.dark ? `dark` : `default`
+        })
+        this.bindContentLinks()
+        if (window.location.hash) {
+          this.activeTocAnchor = decodeURIComponent(window.location.hash)
+        } else if (this.tocDecoded.length) {
+          this.activeTocAnchor = this.tocDecoded[0].anchor
+        } else {
+          this.activeTocAnchor = ''
+        }
+        this.updateActiveTocAnchor()
+        window.boot.notify('page-ready')
+      })
+    },
+    bindContentLinks () {
+      this.$refs.container.querySelectorAll('a[href]').forEach(el => {
+        el.onclick = ev => {
+          const href = el.getAttribute('href')
+          const target = this.$helpers.getArticleTarget(href)
+          if (href && (_.startsWith(href, '#') || target.reason === 'hash-only')) {
+            ev.preventDefault()
+            ev.stopPropagation()
+            this.$vuetify.goTo(decodeURIComponent(el.hash), this.scrollOpts)
+          } else {
+            this.$helpers.navigateArticle(el.href || href, this, ev, { source: 'content' })
+          }
+        }
+      })
+    },
     goHome () {
       if (this.locales && this.locales.length > 0) {
-        window.location.assign(`/${this.locale}/home`)
+        this.$helpers.navigateArticle(`/${this.currentLocale}/home`, this, null, { source: 'page-home' })
       } else {
         window.location.assign('/')
       }
@@ -472,12 +627,12 @@ export default {
           query: treeContextQuery,
           fetchPolicy: 'cache-first',
           variables: {
-            path: this.path,
-            locale: this.locale
+            path: this.currentPath,
+            locale: this.currentLocale
           }
         })
         const contextItems = (((resp || {}).data || {}).pages || {}).tree || []
-        const currentItem = contextItems.find(item => item.pageId === this.pageId) || contextItems.find(item => item.path === this.path)
+        const currentItem = contextItems.find(item => item.pageId === this.currentId) || contextItems.find(item => item.path === this.currentPath)
         if (!currentItem) {
           return
         }

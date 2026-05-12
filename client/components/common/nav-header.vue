@@ -476,7 +476,9 @@ export default {
       window.location.assign('/logout')
     },
     goHome () {
-      if (this.locales && this.locales.length > 0) {
+      if (this.locales && this.locales.length > 0 && this.mode === 'view') {
+        this.$helpers.navigateArticle(`/${this.locale}/home`, this, null, { source: 'nav-header-home' })
+      } else if (this.locales && this.locales.length > 0) {
         window.location.assign(`/${this.locale}/home`)
       } else {
         window.location.assign('/')

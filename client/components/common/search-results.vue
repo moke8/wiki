@@ -136,7 +136,9 @@ export default {
       this.search = term
     },
     goToPage(item) {
-      window.location.assign(`/${item.locale}/${item.path}`)
+      this.search = ''
+      this.searchIsFocused = false
+      this.$helpers.navigateArticle(`/${item.locale}/${item.path}`, this, null, { source: 'search-results' })
     },
     goToPageInNewTab(item) {
       window.open(`/${item.locale}/${item.path}`, '_blank')
