@@ -28,12 +28,16 @@
           v-icon.zidan-dir-item-icon(v-if='item.isFolder', size='16') mdi-{{ open ? 'folder-open' : 'folder' }}
           v-icon.zidan-dir-item-icon(v-else, size='16') mdi-file-document-outline
         template(slot='label', slot-scope='{ item }')
-          a.zidan-dir-item-label(
-            v-if='item.pageId > 0'
-            :href='`/` + item.locale + `/` + item.path'
-            :class='{ "is-active": path === item.path }'
-          ) {{ item.title }}
-          span.zidan-dir-item-label(v-else) {{ item.title }}
+          v-tooltip(bottom, open-delay='350', max-width='360')
+            template(v-slot:activator='{ on }')
+              a.zidan-dir-item-label(
+                v-if='item.pageId > 0'
+                :href='`/` + item.locale + `/` + item.path'
+                :class='{ "is-active": path === item.path }'
+                v-on='on'
+              ) {{ item.title }}
+              span.zidan-dir-item-label(v-else, v-on='on') {{ item.title }}
+            span.zidan-dir-title-tooltip {{ item.title }}
 </template>
 
 <script>

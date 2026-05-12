@@ -5,6 +5,7 @@ const _ = require('lodash')
 const CleanCSS = require('clean-css')
 const moment = require('moment')
 const qs = require('querystring')
+const { v4: uuid } = require('uuid')
 
 /* global WIKI */
 
@@ -171,7 +172,7 @@ router.get(['/e', '/e/*'], async (req, res, next) => {
 
     _.set(res.locals, 'pageMeta.title', `New Page`)
     page = {
-      path: pageArgs.path,
+      path: uuid(),
       localeCode: pageArgs.locale,
       editorKey: null,
       mode: 'create',

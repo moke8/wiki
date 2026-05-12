@@ -149,6 +149,7 @@
 <script>
 import _ from 'lodash'
 import gql from 'graphql-tag'
+import { v4 as uuid } from 'uuid'
 
 import setPageFolderMetaMutation from 'gql/common/common-pages-mutation-folder-meta.gql'
 
@@ -164,7 +165,7 @@ export default {
     },
     path: {
       type: String,
-      default: 'new-page'
+      default: () => uuid()
     },
     locale: {
       type: String,
@@ -193,8 +194,8 @@ export default {
       searchLoading: false,
       currentLocale: siteConfig.lang,
       currentFolderPath: '',
-      currentSlug: 'new-page',
-      currentPath: 'new-page',
+      currentSlug: '',
+      currentPath: '',
       newFolderTitle: '',
       newFolderName: '',
       virtualFolderId: -1,
@@ -416,10 +417,11 @@ export default {
         this.updateCurrentPath()
         return
       }
-      const parts = _.compact(String(path || 'new-page').split('/'))
+      const defaultPath = uuid()
+      const parts = _.compact(String(path || defaultPath).split('/'))
       const folderPath = _.initial(parts).join('/')
       this.currentFolderPath = folderPath
-      this.currentSlug = this.compilePathSegment(_.last(parts) || 'new-page')
+      this.currentSlug = this.compilePathSegment(_.last(parts) || defaultPath)
       const folder = _.find(this.all, item => item.isFolder && item.path === folderPath)
       if (folder) {
         this.currentNode = [folder.id]

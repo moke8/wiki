@@ -441,6 +441,7 @@ export default {
       } else if (this.tocDecoded.length) {
         this.activeTocAnchor = this.tocDecoded[0].anchor
       }
+      this.updateActiveTocAnchor()
       window.boot.notify('page-ready')
     })
   },
@@ -493,6 +494,7 @@ export default {
     upBtnScroll () {
       const scrollOffset = window.pageYOffset || document.documentElement.scrollTop
       this.upBtnShown = scrollOffset > window.innerHeight * 0.33
+      this.updateActiveTocAnchor(scrollOffset)
     },
     print () {
       if (this.printView) {
@@ -524,6 +526,24 @@ export default {
       if (window.history && window.history.replaceState) {
         window.history.replaceState(null, '', anchor)
       }
+    },
+    getFlatTocItems () {
+      return _.flatMap(this.tocDecoded, item => [item].concat(item.children || []))
+    },
+    updateActiveTocAnchor (scrollOffset = window.pageYOffset || document.documentElement.scrollTop) {
+      const tocItems = this.getFlatTocItems()
+      if (!tocItems.length) {
+        return
+      }
+      const activationOffset = scrollOffset + 96
+      let activeAnchor = tocItems[0].anchor
+      tocItems.forEach(item => {
+        const el = document.querySelector(item.anchor)
+        if (el && el.offsetTop <= activationOffset) {
+          activeAnchor = item.anchor
+        }
+      })
+      this.activeTocAnchor = activeAnchor
     },
     isTocActive (anchor) {
       return this.activeTocAnchor === anchor

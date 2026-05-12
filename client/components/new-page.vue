@@ -5,7 +5,7 @@
         img.animated.fadeIn(src='/_assets/svg/icon-delete-file.svg', alt='Not Found')
         .headline {{ $t('newpage.title') }}
         .subtitle-1.mt-3 {{ $t('newpage.subtitle') }}
-        v-btn.mt-5(:href='`/e/` + locale + `/` + path', x-large)
+        v-btn.mt-5(:href='`/e/` + locale + `/` + newPath', x-large)
           v-icon(left) mdi-plus
           span {{ $t('newpage.create') }}
         v-btn.mt-5(color='purple lighten-3', href='javascript:window.history.go(-1);', outlined)
@@ -14,6 +14,7 @@
 </template>
 
 <script>
+import { v4 as uuid } from 'uuid'
 
 export default {
   props: {
@@ -27,7 +28,9 @@ export default {
     }
   },
   data() {
-    return { }
+    return {
+      newPath: uuid()
+    }
   }
 }
 </script>

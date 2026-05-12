@@ -134,6 +134,7 @@ import * as Diff2Html from 'diff2html'
 import { createPatch } from 'diff'
 import _ from 'lodash'
 import gql from 'graphql-tag'
+import { v4 as uuid } from 'uuid'
 
 export default {
   i18nOptions: { namespaces: 'history' },
@@ -219,7 +220,7 @@ export default {
       branchOffOpts: {
         versionId: 0,
         locale: 'en',
-        path: 'new-page',
+        path: uuid(),
         modal: false
       },
       isRestoreConfirmDialogShown: false,
@@ -431,11 +432,10 @@ export default {
       this.restoreLoading = false
     },
     branchOff (versionId) {
-      const pathParts = this.path.split('/')
       this.branchOffOpts = {
         versionId: versionId,
         locale: this.locale,
-        path: (pathParts.length > 1) ? _.initial(pathParts).join('/') + `/new-page` : `new-page`,
+        path: uuid(),
         modal: true
       }
     },

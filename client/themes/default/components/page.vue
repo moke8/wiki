@@ -96,12 +96,12 @@
               .overline.pa-5.pb-0(:class='$vuetify.theme.dark ? `blue--text text--lighten-2` : `primary--text`') {{$t('common:page.toc')}}
               v-list.pb-3(dense, nav, :class='$vuetify.theme.dark ? `darken-3-d3` : ``')
                 template(v-for='(tocItem, tocIdx) in tocDecoded')
-                  v-list-item(@click='$vuetify.goTo(tocItem.anchor, scrollOpts)')
+                  v-list-item(@click='scrollToToc(tocItem.anchor)', :class='{ "v-list-item--active": isTocActive(tocItem.anchor) }')
                     v-icon(color='grey', small) {{ $vuetify.rtl ? `mdi-chevron-left` : `mdi-chevron-right` }}
                     v-list-item-title.px-3 {{tocItem.title}}
                   //- v-divider(v-if='tocIdx < toc.length - 1 || tocItem.children.length')
                   template(v-for='tocSubItem in tocItem.children')
-                    v-list-item(@click='$vuetify.goTo(tocSubItem.anchor, scrollOpts)')
+                    v-list-item(@click='scrollToToc(tocSubItem.anchor)', :class='{ "v-list-item--active": isTocActive(tocSubItem.anchor) }')
                       v-icon.px-3(color='grey lighten-1', small) {{ $vuetify.rtl ? `mdi-chevron-left` : `mdi-chevron-right` }}
                       v-list-item-title.px-3.caption.grey--text(:class='$vuetify.theme.dark ? `text--lighten-1` : `text--darken-1`') {{tocSubItem.title}}
                     //- v-divider(inset, v-if='tocIdx < toc.length - 1')
@@ -552,6 +552,7 @@ export default {
         }
       },
       winWidth: 0,
+      activeTocAnchor: '',
       breadcrumbItems: []
     }
   },
@@ -681,6 +682,12 @@ export default {
           this.$vuetify.goTo(decodeURIComponent(ev.currentTarget.hash), this.scrollOpts)
         }
       })
+      if (window.location.hash) {
+        this.activeTocAnchor = decodeURIComponent(window.location.hash)
+      } else if (this.tocDecoded.length) {
+        this.activeTocAnchor = this.tocDecoded[0].anchor
+      }
+      this.updateActiveTocAnchor()
 
       window.boot.notify('page-ready')
     })
@@ -736,6 +743,7 @@ export default {
     upBtnScroll () {
       const scrollOffset = window.pageYOffset || document.documentElement.scrollTop
       this.upBtnShown = scrollOffset > window.innerHeight * 0.33
+      this.updateActiveTocAnchor(scrollOffset)
     },
     print () {
       if (this.printView) {
@@ -776,6 +784,34 @@ export default {
       } else {
         this.navShown = false
       }
+    },
+    scrollToToc (anchor) {
+      this.activeTocAnchor = anchor
+      this.$vuetify.goTo(anchor, this.scrollOpts)
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', anchor)
+      }
+    },
+    getFlatTocItems () {
+      return _.flatMap(this.tocDecoded, item => [item].concat(item.children || []))
+    },
+    updateActiveTocAnchor (scrollOffset = window.pageYOffset || document.documentElement.scrollTop) {
+      const tocItems = this.getFlatTocItems()
+      if (!tocItems.length) {
+        return
+      }
+      const activationOffset = scrollOffset + 96
+      let activeAnchor = tocItems[0].anchor
+      tocItems.forEach(item => {
+        const el = document.querySelector(item.anchor)
+        if (el && el.offsetTop <= activationOffset) {
+          activeAnchor = item.anchor
+        }
+      })
+      this.activeTocAnchor = activeAnchor
+    },
+    isTocActive (anchor) {
+      return this.activeTocAnchor === anchor
     },
     goToComments (focusNewComment = false) {
       this.$vuetify.goTo('#discussion', this.scrollOpts)

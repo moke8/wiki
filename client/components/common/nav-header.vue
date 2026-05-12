@@ -252,6 +252,7 @@
 <script>
 import { get, sync } from 'vuex-pathify'
 import _ from 'lodash'
+import { v4 as uuid } from 'uuid'
 
 import movePageMutation from 'gql/common/common-pages-mutation-move.gql'
 
@@ -285,7 +286,7 @@ export default {
       isDevMode: false,
       duplicateOpts: {
         locale: 'en',
-        path: 'new-page',
+        path: uuid(),
         modal: false
       }
     }
@@ -415,10 +416,9 @@ export default {
       window.location.assign(`/s/${this.locale}/${this.path}`)
     },
     pageDuplicate () {
-      const pathParts = this.path.split('/')
       this.duplicateOpts = {
         locale: this.locale,
-        path: (pathParts.length > 1) ? _.initial(pathParts).join('/') + `/new-page` : `new-page`,
+        path: uuid(),
         modal: true
       }
     },

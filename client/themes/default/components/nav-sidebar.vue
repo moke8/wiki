@@ -29,12 +29,16 @@
         v-icon(v-if='item.isFolder', size='20') mdi-{{ open ? 'folder-open' : 'folder' }}
         v-icon(v-else, size='20') mdi-text-box
       template(slot='label', slot-scope='{ item }')
-        a.nav-sidebar-tree-label(
-          v-if='item.pageId > 0'
-          :href='`/` + item.locale + `/` + item.path'
-          :class='{ "is-active": path === item.path }'
-        ) {{ item.title }}
-        span.nav-sidebar-tree-label(v-else) {{ item.title }}
+        v-tooltip(bottom, open-delay='350', max-width='360')
+          template(v-slot:activator='{ on }')
+            a.nav-sidebar-tree-label(
+              v-if='item.pageId > 0'
+              :href='`/` + item.locale + `/` + item.path'
+              :class='{ "is-active": path === item.path }'
+              v-on='on'
+            ) {{ item.title }}
+            span.nav-sidebar-tree-label(v-else, v-on='on') {{ item.title }}
+          span.nav-sidebar-title-tooltip {{ item.title }}
 </template>
 
 <script>
@@ -245,12 +249,18 @@ export default {
   }
 
   .v-treeview-node__label {
+    align-self: stretch;
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 auto;
     min-width: 0;
   }
 }
 
 .nav-sidebar-tree-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  width: 100%;
   min-width: 0;
   color: inherit !important;
   text-decoration: none;
@@ -265,5 +275,11 @@ export default {
   &.is-active {
     font-weight: 500;
   }
+}
+
+.nav-sidebar-title-tooltip {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 </style>

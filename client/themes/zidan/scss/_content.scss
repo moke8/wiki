@@ -788,6 +788,7 @@
       font-size: .88rem;
       line-height: 1.6;
       background-color: transparent;
+      text-shadow: none;
 
       @at-root .theme--dark#{&} {
         color: #FFFFFF;
