@@ -23,6 +23,7 @@
         hoverable
         open-on-click
         transition
+        @click.native='handleTreeClick'
       )
         template(slot='prepend', slot-scope='{ item, open }')
           v-icon.zidan-dir-item-icon(v-if='item.isFolder', size='16') mdi-{{ open ? 'folder-open' : 'folder' }}
@@ -227,6 +228,14 @@ export default {
     },
     navigateArticle (event, item) {
       this.$helpers.navigateArticle(`/${item.locale}/${item.path}`, this, event, { source: 'nav-sidebar' })
+    },
+    handleTreeClick (event) {
+      if (event.target.closest('a, button, .v-treeview-node__toggle')) { return }
+      const nodeRoot = event.target.closest('.v-treeview-node__root')
+      if (!nodeRoot) { return }
+      const label = nodeRoot.querySelector('.zidan-dir-item-label[href]')
+      if (!label) { return }
+      label.click()
     },
     goHome () {
       if (siteLangs.length > 0) {

@@ -9,9 +9,19 @@
       :temporary='$vuetify.breakpoint.smAndDown'
       v-model='navShown'
       :right='$vuetify.rtl'
-      width='260'
+      :width='sidebarWidth'
       )
       nav-sidebar(:items='sidebarDecoded', :nav-mode='currentPage.navMode')
+      .zidan-nav-resizer(
+        v-if='$vuetify.breakpoint.mdAndUp'
+        @mousedown='startSidebarResize'
+        @touchstart.prevent='startSidebarResize'
+        role='separator'
+        aria-orientation='vertical'
+        :aria-valuemin='sidebarMinWidth'
+        :aria-valuemax='sidebarMaxWidth'
+        :aria-valuenow='sidebarWidth'
+        )
 
     v-fab-transition(v-if='navMode !== `NONE`')
       v-btn(
@@ -139,9 +149,11 @@
             .contents(v-else, ref='container')
               slot(name='contents')
             .comments-container#discussion(v-if='currentCommentsEnabled && commentsPerms.read && !printView')
-              .comments-main(v-if='hasDynamicContent', v-html='pageCommentsHtml')
-              .comments-main(v-else)
+              .comments-main(v-if='currentCommentsExternal && hasDynamicContent', v-html='pageCommentsHtml')
+              .comments-main(v-else-if='currentCommentsExternal')
                 slot(name='comments')
+              .comments-main(v-else)
+                comments(:key='`comments-` + currentId')
           //- Right Sidebar (TOC + meta)
           v-flex.page-col-sd.zidan-toc-col.zidan-right-sidebar(
             v-if='tocPosition !== `off` && $vuetify.breakpoint.lgAndUp'
@@ -198,7 +210,7 @@
                     v-btn(icon, small, v-on='on', :aria-label='$t(`common:page.share`)')
                       v-icon.zidan-action-icon(size='18') mdi-share-variant
                   social-sharing(:url='pageUrl', :title='currentTitle', :description='currentDescription')
-    nav-footer.zidan-page-footer(v-if='!printView')
+    nav-footer.zidan-page-footer(v-if='!printView', :style='footerOffsetStyle')
     notify
     search-results
     ai-chat(
@@ -210,7 +222,7 @@
       color='primary'
       :small='true'
       :bottom-offset='24'
-      :side-offset='$vuetify.breakpoint.mdAndUp ? 24 : 65'
+      :side-offset='24'
     )
     v-fab-transition
       v-btn.zidan-up-btn(
@@ -333,6 +345,12 @@ export default {
       winWidth: 0,
       activeTocAnchor: '',
       breadcrumbItems: [],
+      sidebarWidth: 260,
+      sidebarMinWidth: 220,
+      sidebarMaxWidth: 420,
+      sidebarResizeStartX: 0,
+      sidebarResizeStartWidth: 260,
+      isSidebarResizing: false,
       currentPage: this.getInitialPageData(),
       pageHtml: '',
       pageCommentsHtml: '',
@@ -362,9 +380,16 @@ export default {
         }, []))
     },
     pageUrl () { return window.location.href },
+    footerOffsetStyle () {
+      if (this.$vuetify.breakpoint.mdAndUp && this.currentPage.navMode !== `NONE` && !this.printView) {
+        return this.$vuetify.rtl ? { marginRight: `${this.sidebarWidth}px`, marginLeft: 0 } : { marginLeft: `${this.sidebarWidth}px`, marginRight: 0 }
+      }
+      return {}
+    },
     upBtnPosition () {
       if (this.$vuetify.breakpoint.mdAndUp) {
-        return this.$vuetify.rtl ? `right: 275px;` : `left: 275px;`
+        const offset = this.currentPage.navMode !== `NONE` && !this.printView ? this.sidebarWidth + 15 : 24
+        return this.$vuetify.rtl ? `right: ${offset}px;` : `left: ${offset}px;`
       } else {
         return this.$vuetify.rtl ? `right: 65px;` : `left: 65px;`
       }
@@ -379,6 +404,7 @@ export default {
     currentUpdatedAt () { return this.currentPage.updatedAt },
     currentIsPublished () { return this.currentPage.isPublished },
     currentCommentsEnabled () { return this.currentPage.commentsEnabled },
+    currentCommentsExternal () { return this.currentPage.commentsExternal },
     currentFilename () { return this.currentPage.filename },
     sidebarDecoded () {
       return this.decodeBase64Json(this.currentPage.sidebar, [])
@@ -410,6 +436,7 @@ export default {
     this.syncPageStore(this.currentPage)
   },
   mounted () {
+    this.restoreSidebarWidth()
     this.handleSideNavVisibility()
     this.loadBreadcrumbs()
     this.resizeHandler = _.debounce(() => {
@@ -432,8 +459,53 @@ export default {
     if (this.popstateHandler) {
       window.removeEventListener('popstate', this.popstateHandler)
     }
+    this.stopSidebarResize()
   },
   methods: {
+    getPointerClientX (event) {
+      const touch = event.touches && event.touches[0]
+      return touch ? touch.clientX : event.clientX
+    },
+    clampSidebarWidth (width) {
+      return Math.min(this.sidebarMaxWidth, Math.max(this.sidebarMinWidth, width))
+    },
+    restoreSidebarWidth () {
+      const storedWidth = Number(window.localStorage.getItem('zidan-sidebar-width'))
+      if (!Number.isNaN(storedWidth) && storedWidth > 0) {
+        this.sidebarWidth = this.clampSidebarWidth(storedWidth)
+      }
+    },
+    startSidebarResize (event) {
+      if (!this.$vuetify.breakpoint.mdAndUp) { return }
+      this.isSidebarResizing = true
+      this.sidebarResizeStartX = this.getPointerClientX(event)
+      this.sidebarResizeStartWidth = this.sidebarWidth
+      document.body.classList.add('zidan-sidebar-resizing')
+      window.addEventListener('mousemove', this.resizeSidebar)
+      window.addEventListener('mouseup', this.stopSidebarResize)
+      window.addEventListener('touchmove', this.resizeSidebar, { passive: false })
+      window.addEventListener('touchend', this.stopSidebarResize)
+    },
+    resizeSidebar (event) {
+      if (!this.isSidebarResizing) { return }
+      if (event.cancelable) {
+        event.preventDefault()
+      }
+      const currentX = this.getPointerClientX(event)
+      const delta = this.$vuetify.rtl ? this.sidebarResizeStartX - currentX : currentX - this.sidebarResizeStartX
+      this.sidebarWidth = this.clampSidebarWidth(this.sidebarResizeStartWidth + delta)
+    },
+    stopSidebarResize () {
+      if (this.isSidebarResizing) {
+        window.localStorage.setItem('zidan-sidebar-width', String(this.sidebarWidth))
+      }
+      this.isSidebarResizing = false
+      document.body.classList.remove('zidan-sidebar-resizing')
+      window.removeEventListener('mousemove', this.resizeSidebar)
+      window.removeEventListener('mouseup', this.stopSidebarResize)
+      window.removeEventListener('touchmove', this.resizeSidebar)
+      window.removeEventListener('touchend', this.stopSidebarResize)
+    },
     getInitialPageData () {
       return {
         pageId: this.pageId,
@@ -498,6 +570,9 @@ export default {
     },
     applyPagePayload (payload) {
       const page = payload.page || {}
+      this.pageHtml = page.render || ''
+      this.pageCommentsHtml = _.get(payload, 'comments.main', '')
+      this.hasDynamicContent = true
       this.currentPage = {
         pageId: page.id,
         locale: page.localeCode,
@@ -520,9 +595,6 @@ export default {
         editShortcuts: _.get(payload, 'encoded.editShortcuts', ''),
         filename: payload.pageFilename
       }
-      this.pageHtml = page.render || ''
-      this.pageCommentsHtml = _.get(payload, 'comments.main', '')
-      this.hasDynamicContent = true
       this.breadcrumbItems = []
       this.syncPageStore(this.currentPage)
       this.updatePageMeta(payload)
