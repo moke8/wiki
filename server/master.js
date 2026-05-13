@@ -93,6 +93,7 @@ module.exports = async () => {
 
   app.use(bodyParser.json({ limit: WIKI.config.bodyParserLimit || '1mb' }))
   await WIKI.servers.startGraphQL()
+  app.use('/', ctrl.mcp)
 
   // ----------------------------------------
   // SEO

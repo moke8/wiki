@@ -21,9 +21,36 @@
   - AI 问答与向量检索能力配合使用，用于基于知识库内容进行问答。
   - 前端组件主要位于 `client/components/common/ai-chat.vue`，zidan 页面中已集成入口。
 
+- **知识库 MCP 支持**
+  - 新增面向智能体的 MCP JSON-RPC HTTP endpoint：`POST /mcp`。
+  - 后台新增 MCP API Key 管理入口：`/a/mcp`，支持名称、IP 限制、撤销和最后使用时间查看。
+  - MCP Key 不做用户级权限区分，可消费全站已发布文章。
+  - 当前暴露 `wiki_search`、`wiki_get_page`、`wiki_tree`、`wiki_retrieve_context` 等知识库工具。
+  - 功能说明见 `docs/mcp-knowledge-base.md`。
+
 - **文件夹别名 / 目录展示增强**
   - 增强目录树展示能力，支持更适合知识库导航的文件夹展示与别名/标题化展示场景。
   - zidan 主题左侧目录树位于 `client/themes/zidan/components/nav-sidebar.vue`。
+
+- **Markdown ZIP 批量导入**
+  - 管理后台新增 Markdown ZIP 批量导入能力，可一次性上传包含多个 `.md` 文件的压缩包并批量创建文章。
+  - 导入逻辑会校验压缩包内容，仅处理 Markdown 文件，并避免目录、非法路径等不安全输入。
+  - 批量导入时文章路径默认使用 UUID 生成，避免中文标题直接进入 URL 路径带来的编码、可读性不稳定和重名冲突问题，更适合中文知识库场景。
+  - 批量导入主要面向已有 Markdown 文档迁移，适合将本地文档批量导入为 Wiki 页面。
+
+- **文章路径 UUID 化**
+  - 新建文章路径不再依赖固定的 `new-page` 或中文标题 slug，而是默认生成 UUID 作为页面路径。
+  - 单独创建文章时也默认使用 UUID 路径，标题可继续使用中文，URL 路径保持稳定、唯一且不受中文分词/转写规则影响。
+  - 该策略降低了中文化场景下路径编码、标题重名、标题变更影响链接等问题，文章展示名称仍以页面标题和目录标题为准。
+
+- **文章页 SPA 跳转**
+  - 前台普通文章页面之间支持无刷新跳转：点击侧边栏文章、文章正文内同站文章链接、文章页内搜索结果时，会通过接口加载目标文章并局部更新当前页面。
+  - 首次访问、刷新和分享链接仍使用服务端 `res.render('page')` 输出完整页面，不影响 SEO、分享卡片和无 JS 访问基础能力。
+  - SPA 范围仅限普通文章页之间；管理后台 `/a`、编辑 `/e`、历史 `/h`、源码 `/s`、下载 `/d`、标签页 `/t`、个人中心 `/p`、登录登出等仍保持整页跳转。
+  - 新增文章数据接口 `GET /_page/:locale/:path`，复用服务端文章权限、发布状态、评论模板、目录等渲染数据逻辑。
+  - SPA 切换后会更新文章标题、描述、正文、评论区域、TOC、面包屑、Vuex 页面状态、浏览器地址和 meta 信息，并重新执行代码高亮、Mermaid、正文链接拦截等页面增强逻辑。
+  - 左侧目录树在文章 SPA 切换时不会重新加载整棵树，仅更新当前文章激活状态；语言切换时仍会重新加载对应语言目录树。
+  - 相关前端改动主要位于 `client/helpers/index.js`、`client/themes/default/components/page.vue`、`client/themes/zidan/components/page.vue` 以及两个主题的 `nav-sidebar.vue`。
 
 - **界面与交互修正**
   - 优化 zidan 主题下搜索栏、搜索结果列表、编辑悬浮按钮、AI Chat 悬浮按钮、返回顶部按钮等样式。

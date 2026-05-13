@@ -83,6 +83,9 @@
             v-list-item(to='/api', v-if='hasPermission([`manage:system`, `manage:api`])')
               v-list-item-avatar(size='24', tile): v-icon mdi-call-split
               v-list-item-title {{ $t('admin:api.title') }}
+            v-list-item(to='/mcp', v-if='hasPermission([`manage:system`, `manage:api`])')
+              v-list-item-avatar(size='24', tile): v-icon mdi-robot-outline
+              v-list-item-title MCP API Keys
             v-list-item(to='/mail', color='primary', v-if='hasPermission(`manage:system`)')
               v-list-item-avatar(size='24', tile): v-icon mdi-email-multiple-outline
               v-list-item-title {{ $t('admin:mail.title') }}
@@ -173,6 +176,7 @@ const router = new VueRouter({
     { path: '/ai-logs', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-ai-logs.vue') },
     { path: '/storage', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-storage.vue') },
     { path: '/api', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-api.vue') },
+    { path: '/mcp', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-mcp.vue') },
     { path: '/mail', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-mail.vue') },
     { path: '/security', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-security.vue') },
     { path: '/ssl', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-ssl.vue') },

@@ -1,0 +1,54 @@
+# ===============================================
+# MCP
+# ===============================================
+
+extend type Query {
+  mcp: McpQuery
+}
+
+extend type Mutation {
+  mcp: McpMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type McpQuery {
+  apiKeys: [McpApiKey] @auth(requires: ["manage:system", "manage:api"])
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type McpMutation {
+  createApiKey(
+    name: String!
+    ipAllowlist: [String]
+  ): McpCreateApiKeyResponse @auth(requires: ["manage:system", "manage:api"])
+
+  revokeApiKey(
+    id: Int!
+  ): DefaultResponse @auth(requires: ["manage:system", "manage:api"])
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type McpApiKey {
+  id: Int!
+  name: String!
+  keyPrefix: String!
+  ipAllowlist: [String]!
+  lastUsedAt: Date
+  createdAt: Date!
+  updatedAt: Date!
+  isRevoked: Boolean!
+}
+
+type McpCreateApiKeyResponse {
+  responseResult: ResponseStatus
+  key: String
+}
